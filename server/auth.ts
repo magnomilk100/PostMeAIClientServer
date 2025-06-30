@@ -9,6 +9,7 @@ import connectPg from "connect-pg-simple";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import dotenv from "dotenv";
+import { pool } from "./db";           // ← import the same pool
 
 dotenv.config();
 export function setupAuth(app: Express) {
@@ -16,7 +17,8 @@ export function setupAuth(app: Express) {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    //conString: process.env.DATABASE_URL,
+    pool,
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
