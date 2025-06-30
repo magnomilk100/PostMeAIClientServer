@@ -123,6 +123,7 @@
   "optionalDependencies": {
     "bufferutil": "^4.0.8",
     "vite": "^5.4.19",
-    "@vitejs/plugin-react": "^4.3.2"
+    "@vitejs/plugin-react": "^4.3.2",
+    "drizzle-kit": "^0.30.6"
   }
 }
