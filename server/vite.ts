@@ -6,7 +6,7 @@ import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
-// simple logging utility, no Vite here
+// simple logger, no vite here
 export function log(message: string, source = "express") {
   const ts = new Date().toLocaleTimeString("en-US", {
     hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true
@@ -14,11 +14,11 @@ export function log(message: string, source = "express") {
   console.log(`${ts} [${source}] ${message}`);
 }
 
-// only in dev do we ever import() vite
+// NOTE: we only import() Vite in here, and *only* if you call setupVite()
 export async function setupVite(app: Express, server: Server) {
+  // dynamic import prevents Vite from even being referenced in prod
   const { createServer: createViteServer, createLogger } = await import("vite");
   const viteLogger = createLogger();
-
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -29,7 +29,11 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: { middlewareMode: true, hmr: { server }, allowedHosts: true },
+    server: {
+      middlewareMode: true,
+      hmr: { server },
+      allowedHosts: true,
+    },
     appType: "custom",
   });
 
@@ -52,7 +56,7 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-// production static‐serve, no Vite import anywhere
+// in production we never call setupVite(), so vite is never loaded
 export function serveStatic(app: Express) {
   const distPath = path.resolve(import.meta.dirname, "public");
   if (!fs.existsSync(distPath)) {
