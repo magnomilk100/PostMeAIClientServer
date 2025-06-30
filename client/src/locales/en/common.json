@@ -1,0 +1,630 @@
+{
+  "welcome": "Welcome",
+  "login": "Log in",
+  "logout": "Log out",
+  "settings": "Settings",
+  "language": "Language",
+  "home": "Home",
+  "post": "Post",
+  "templates": "Templates",
+  "images": "Images",
+  "socialMedia": "Social Media",
+  "billing": "Billing",
+  "subscriptionPlan": "Subscription Plan",
+  "documentation": "Documentation",
+  "videoDemo": "Video Demo",
+  "pendentPosts": "Pendent Posts",
+  "account": "Account & Billing",
+  "learning": "Learning & Help",
+  "createNewPost": "Create New Post",
+  "aiPost": "AI Post",
+  "manualPost": "Manual Post",
+  "selectLanguage": "Select Language",
+  "changeLanguage": "Change Language",
+  "createFirstPost": "Create Your First Post",
+  "watchDemo": "Watch Demo",
+  "turnIdeasViral": "Turn Ideas into Viral Content",
+  "postSmarter": "Post Smarter with PostMeAI.",
+  "home": {
+    "hero": {
+      "title": "Turn Ideas into Viral Content",
+      "subtitle": "Post Smarter with PostMeAI.",
+      "createButton": "Create Your First Post",
+      "demoButton": "Watch Demo"
+    },
+    "whatIs": {
+      "title": "What is PostMeAI?",
+      "description": "PostMeAI is a comprehensive AI-powered social media management platform designed to transform how content creators and businesses approach social media. Our platform combines cutting-edge artificial intelligence with intuitive design to automate content creation, optimize posting schedules, and maximize engagement across all major social networks."
+    },
+    "forCreators": {
+      "title": "For Content Creators",
+      "items": {
+        "0": "AI-powered content generation that matches your unique voice and style",
+        "1": "Automated posting schedules optimized for maximum engagement",
+        "2": "Multi-platform content adaptation with platform-specific optimization",
+        "3": "Advanced analytics to track performance and growth across all channels",
+        "4": "Template system for consistent branding and recurring content themes"
+      }
+    },
+    "forBusinesses": {
+      "title": "For Businesses",
+      "items": {
+        "0": "Brand-consistent content generation aligned with your marketing strategy",
+        "1": "Team collaboration tools with role-based access and approval workflows",
+        "2": "Enterprise-grade analytics with ROI tracking and performance insights",
+        "3": "Custom API integrations for seamless workflow automation",
+        "4": "White-label solutions for agencies and large-scale implementations"
+      }
+    }
+  },
+  "socialMedia": {
+    "title": "Social Media Platforms",
+    "subtitle": "Connect and manage your social media accounts",
+    "explanation": {
+      "title": "How Social Media Integration Works",
+      "items": {
+        "0": "Configure API keys for each platform you want to use",
+        "1": "Test connections to verify your credentials are working",
+        "2": "Enable/disable platforms for content publishing",
+        "3": "PostMeAI will automatically format content for each selected platform",
+        "4": "Monitor connection status and troubleshoot any issues"
+      }
+    },
+    "selectedPlatforms": "Selected Platforms",
+    "platformsCount": "{{count}} platforms selected for content publishing",
+    "configuration": "Platform Configuration",
+    "platformName": "Platform",
+    "status": "Status",
+    "apiKey": "API Key",
+    "actions": "Actions",
+    "connected": "Connected",
+    "failed": "Failed",
+    "testing": "Testing...",
+    "readyToTest": "Ready to test",
+    "testConnection": "TEST",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enterApiKey": "Enter your {{platform}} API key",
+    "apiKeyRequired": "API key is required to test connection",
+    "saveConfiguration": "Save Configuration",
+    "saving": "Saving...",
+    "testingConnection": "Testing connection...",
+    "connectionSuccess": "Connection successful!",
+    "connectionFailed": "Connection failed",
+    "configurationSaved": "Configuration saved successfully"
+  },
+  "pendentPosts": {
+    "title": "Pendent Posts to be Reviewed",
+    "subtitle": "Review and approve scheduled posts before they go live. Posts with \"Review\" execution mode require your approval.",
+    "noPosts": {
+      "title": "All Caught Up!",
+      "description": "No posts are currently waiting for your review."
+    },
+    "contentPreview": "Content Preview:",
+    "publishingPlatforms": "Publishing Platforms:",
+    "template": "Template:",
+    "pendingReview": "Pending Review",
+    "reviewMode": "Review Mode",
+    "autoMode": "Auto Mode",
+    "buttons": {
+      "edit": "Edit",
+      "reject": "Reject", 
+      "approve": "Approve",
+      "cancel": "Cancel",
+      "saveChanges": "Save Changes"
+    },
+    "editDialog": {
+      "title": "Edit Post Content",
+      "description": "Make changes to the post content before approval.",
+      "titleLabel": "Title",
+      "contentLabel": "Content"
+    },
+    "toast": {
+      "postApproved": {
+        "title": "Post Approved",
+        "description": "The post has been approved and will be published as scheduled."
+      },
+      "postRejected": {
+        "title": "Post Rejected", 
+        "description": "The post has been rejected and removed from the schedule."
+      },
+      "postUpdated": {
+        "title": "Post Updated",
+        "description": "The post content has been updated successfully."
+      }
+    }
+  },
+  "documentation": {
+    "title": "PostMeAI Documentation",
+    "subtitle": "Complete guide to using PostMeAI for social media content creation and management",
+    "overview": {
+      "title": "Overview",
+      "description": "PostMeAI is an AI-powered social media management platform that helps you create, optimize, and publish content across multiple platforms automatically.",
+      "aiContent": {
+        "title": "AI Content Generation",
+        "description": "Generate engaging posts automatically using advanced AI algorithms"
+      },
+      "multiPlatform": {
+        "title": "Multi-Platform Publishing",
+        "description": "Publish to 7+ social media platforms with platform-specific optimization"
+      },
+      "scheduling": {
+        "title": "Smart Scheduling",
+        "description": "Automate your posting schedule with intelligent timing"
+      }
+    },
+    "platforms": {
+      "title": "Supported Social Media Platforms",
+      "description": "PostMeAI supports content creation and publishing for the following platforms:",
+      "facebook": "Posts, images, links",
+      "instagram": "Photos, stories, reels",
+      "linkedin": "Professional posts, articles",
+      "tiktok": "Short videos, trends",
+      "youtube": "Videos, community posts",
+      "discord": "Server messages, embeds",
+      "telegram": "Channel posts, media"
+    },
+    "aiPost": {
+      "title": "AI-Powered Post Creation",
+      "features": "Features:",
+      "workflow": "Workflow:",
+      "featuresList": {
+        "0": "Subject-based content generation (up to 400 characters)",
+        "1": "Execution modes: Review or Auto Post",
+        "2": "Customizable text length (50-1000 characters)",
+        "3": "Support for 20+ languages",
+        "4": "Optional AI image generation",
+        "5": "Platform-specific content optimization"
+      },
+      "workflowList": {
+        "0": "Enter your subject/topic",
+        "1": "Configure generation settings",
+        "2": "Review generated content",
+        "3": "Customize for each platform",
+        "4": "Publish or schedule"
+      }
+    },
+    "manualPost": {
+      "title": "Manual Post Creation",
+      "features": "Features:",
+      "imageManagement": "Image Management:",
+      "featuresList": {
+        "0": "Custom title and content creation",
+        "1": "Multiple image selection from library",
+        "2": "Platform targeting selection",
+        "3": "Support for links and URLs",
+        "4": "Multi-language support",
+        "5": "Real-time character counting"
+      },
+      "imageList": {
+        "0": "Organized folder structure",
+        "1": "Upload multiple images at once",
+        "2": "Preview and delete functionality",
+        "3": "Filter by folder categories"
+      }
+    },
+    "templates": {
+      "title": "Template Management",
+      "features": "Features:",
+      "scheduling": "Scheduling Options:",
+      "featuresList": [
+        "Save post configurations as reusable templates",
+        "Automated scheduling (daily, weekly, monthly)",
+        "Template execution and management",
+        "Track creation and execution dates",
+        "Active/inactive status control"
+      ],
+      "schedulingList": [
+        "Daily - Post every day at specified time",
+        "Weekly - Post once per week",
+        "Monthly - Post once per month",
+        "Timezone support for accurate scheduling"
+      ]
+    },
+    "socialMedia": {
+      "title": "Social Media Integration",
+      "apiConfig": "API Configuration:",
+      "setupRequirements": "Setup Requirements:",
+      "apiList": [
+        "Secure API key management",
+        "Platform-specific connection setup",
+        "Connection status monitoring",
+        "Password protection with visibility toggle"
+      ],
+      "setupList": [
+        "Facebook: Facebook Developers App",
+        "Instagram: Facebook Graph API",
+        "LinkedIn: LinkedIn Developer Program",
+        "TikTok: TikTok for Developers",
+        "YouTube: Google Cloud Console",
+        "Discord: Discord Developer Portal",
+        "Telegram: BotFather Token"
+      ]
+    },
+    "imageLibrary": {
+      "title": "Image Library Management",
+      "description": "Organize and manage your images with a comprehensive library system",
+      "organization": "Organization Features:",
+      "management": "Management Actions:",
+      "organizationList": [
+        "Folder-based organization system",
+        "Filter images by folder categories",
+        "Create custom folders for projects",
+        "Image metadata and details"
+      ],
+      "managementList": [
+        "Upload multiple images simultaneously",
+        "Preview images in full-screen modal",
+        "Delete images with confirmation",
+        "Hover actions for quick access"
+      ]
+    },
+    "gettingStarted": {
+      "title": "Getting Started",
+      "description": "Follow these steps to start creating and publishing content with PostMeAI",
+      "steps": [
+        {
+          "title": "Configure Social Media Accounts",
+          "description": "Navigate to Social Media page and add your API keys for each platform you want to use."
+        },
+        {
+          "title": "Upload Images (Optional)",
+          "description": "Go to Images page to upload and organize your visual content in folders."
+        },
+        {
+          "title": "Create Your First Post",
+          "description": "Choose between AI-powered or manual post creation from the Post page."
+        },
+        {
+          "title": "Review and Customize",
+          "description": "Review generated content and customize it for each platform before publishing."
+        },
+        {
+          "title": "Publish or Schedule",
+          "description": "Publish immediately or save as a template for automated scheduling."
+        }
+      ]
+    },
+    "bestPractices": {
+      "title": "Best Practices",
+      "contentCreation": "Content Creation:",
+      "schedulingTemplates": "Scheduling & Templates:",
+      "contentList": [
+        "Keep subjects clear and specific for better AI results",
+        "Use appropriate text lengths for each platform",
+        "Include relevant links to drive traffic",
+        "Select high-quality images that match your content",
+        "Review platform-specific variations before publishing"
+      ],
+      "schedulingList": [
+        "Set up templates for consistent posting",
+        "Consider optimal posting times for your audience",
+        "Use review mode for important content",
+        "Organize images in meaningful folder structures",
+        "Monitor template performance and adjust as needed"
+      ]
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "profile": "Profile",
+      "notifications": "Notifications",
+      "theme": "Theme",
+      "company": "Company",
+      "security": "Security"
+    },
+    "profile": {
+      "title": "Profile Settings",
+      "description": "Manage your personal information and preferences",
+      "changePhoto": "Change Photo",
+      "remove": "Remove",
+      "fileLimit": "JPG, PNG up to 5MB",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email Address",
+      "bio": "Bio",
+      "bioPlaceholder": "Tell us about yourself...",
+      "timezone": "Timezone",
+      "language": "Language",
+      "saveProfile": "Save Profile",
+      "saving": "Saving...",
+      "timezones": {
+        "UTC": "UTC",
+        "EST": "EST (Eastern)",
+        "PST": "PST (Pacific)",
+        "CET": "CET (Central Europe)",
+        "JST": "JST (Japan)"
+      },
+      "languages": {
+        "en": "English",
+        "es": "Español",
+        "fr": "Français",
+        "de": "Deutsch",
+        "pt": "Português"
+      },
+      "toast": {
+        "photoRemoved": "Profile photo removed",
+        "photoRemovedDesc": "Your profile photo has been removed",
+        "saved": "Profile updated successfully",
+        "error": "Failed to update profile"
+      }
+    },
+    "notifications": {
+      "title": "Notification Settings",
+      "description": "Choose how you want to be notified about activity",
+      "emailNotifications": {
+        "title": "Email Notifications",
+        "description": "Receive notifications via email"
+      },
+      "pushNotifications": {
+        "title": "Push Notifications",
+        "description": "Receive browser push notifications"
+      },
+      "postReminders": {
+        "title": "Post Reminders",
+        "description": "Reminders for scheduled posts"
+      },
+      "templateExecution": {
+        "title": "Template Execution",
+        "description": "Notifications when templates run"
+      },
+      "weeklyReports": {
+        "title": "Weekly Reports",
+        "description": "Performance summaries via email"
+      },
+      "marketingEmails": {
+        "title": "Marketing Emails",
+        "description": "Product updates and tips"
+      },
+      "saveNotifications": "Save Notifications",
+      "toast": {
+        "saved": "Notification settings updated successfully",
+        "error": "Failed to update notifications"
+      }
+    },
+    "theme": {
+      "title": "Theme & Appearance",
+      "description": "Customize how PostMeAI looks and feels",
+      "theme": "Theme",
+      "primaryColor": "Primary Color",
+      "compactMode": {
+        "title": "Compact Mode",
+        "description": "Reduce spacing for more content"
+      },
+      "sidebarCollapsed": {
+        "title": "Collapsed Sidebar",
+        "description": "Start with sidebar minimized"
+      },
+      "themes": {
+        "light": "Light",
+        "dark": "Dark",
+        "auto": "Auto (System)"
+      },
+      "colors": {
+        "purple": "Purple",
+        "blue": "Blue",
+        "green": "Green",
+        "orange": "Orange",
+        "red": "Red"
+      },
+      "saveTheme": "Save Theme",
+      "toast": {
+        "saved": "Theme settings updated successfully",
+        "error": "Failed to update theme"
+      }
+    },
+    "company": {
+      "title": "Company Settings",
+      "description": "Manage your business information and branding",
+      "companyName": "Company Name",
+      "companyLogo": "Company Logo",
+      "changeLogo": "Change Logo",
+      "removeLogo": "Remove Logo",
+      "website": "Website",
+      "industry": "Industry",
+      "teamSize": "Team Size",
+      "brandColors": "Brand Colors",
+      "primaryColor": "Primary Color",
+      "secondaryColor": "Secondary Color",
+      "accentColor": "Accent Color",
+      "industries": {
+        "technology": "Technology",
+        "healthcare": "Healthcare",
+        "finance": "Finance",
+        "education": "Education",
+        "retail": "Retail",
+        "manufacturing": "Manufacturing",
+        "consulting": "Consulting",
+        "other": "Other"
+      },
+      "teamSizes": {
+        "1": "Just me",
+        "2-10": "2-10 employees",
+        "11-50": "11-50 employees",
+        "51-200": "51-200 employees",
+        "200+": "200+ employees"
+      },
+      "saveCompany": "Save Company",
+      "toast": {
+        "logoRemoved": "Company logo removed",
+        "logoRemovedDesc": "Your company logo has been removed",
+        "saved": "Company settings updated successfully",
+        "error": "Failed to update company settings"
+      }
+    },
+    "security": {
+      "title": "Security & Privacy",
+      "description": "Manage your account security and privacy preferences",
+      "sessionTimeout": "Session Timeout",
+      "autoSave": {
+        "title": "Auto-save",
+        "description": "Automatically save drafts while typing"
+      },
+      "rememberLogin": {
+        "title": "Remember Login",
+        "description": "Stay logged in on this device"
+      },
+      "twoFactorAuth": {
+        "title": "Two-Factor Authentication",
+        "description": "Add extra security to your account"
+      },
+      "timeouts": {
+        "15": "15 minutes",
+        "30": "30 minutes",
+        "60": "1 hour",
+        "240": "4 hours",
+        "never": "Never"
+      },
+      "saveSecurity": "Save Security",
+      "toast": {
+        "saved": "Security settings updated successfully",
+        "error": "Failed to update security settings"
+      }
+    }
+  },
+  "subscription": {
+    "title": "Subscription Plans",
+    "subtitle": "Choose the perfect plan for your social media management needs",
+    "currentPlan": "Current Plan",
+    "popular": "Most Popular",
+    "month": "month",
+    "year": "year",
+    "plans": {
+      "basic": {
+        "name": "Basic",
+        "description": "Perfect for individual creators",
+        "features": {
+          "posts": "100 AI-generated posts per month",
+          "platforms": "5 social media platforms",
+          "templates": "Basic templates library",
+          "support": "Email support",
+          "scheduling": "Content scheduling",
+          "analytics": "Basic analytics"
+        }
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Ideal for growing businesses",
+        "features": {
+          "posts": "Unlimited AI-generated posts",
+          "platforms": "All social media platforms",
+          "templates": "Premium templates library",
+          "support": "Priority support",
+          "scheduling": "Advanced scheduling",
+          "analytics": "Detailed analytics",
+          "branding": "Custom branding",
+          "collaboration": "Team collaboration",
+          "automation": "Advanced automation"
+        }
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "description": "For large organizations",
+        "features": {
+          "posts": "Unlimited everything",
+          "platforms": "All platforms + custom integrations",
+          "templates": "Enterprise templates library",
+          "support": "Dedicated account manager",
+          "scheduling": "Enterprise scheduling",
+          "analytics": "Advanced analytics & reporting",
+          "branding": "Full white-label solution",
+          "collaboration": "Advanced team management",
+          "automation": "Enterprise automation",
+          "api": "API access",
+          "sla": "99.9% SLA guarantee",
+          "security": "Enterprise security features"
+        }
+      }
+    },
+    "buttons": {
+      "upgrade": "Upgrade to {{plan}}",
+      "downgrade": "Downgrade to {{plan}}",
+      "current": "Current Plan",
+      "cancel": "Cancel Subscription",
+      "upgrading": "Upgrading...",
+      "canceling": "Canceling..."
+    },
+    "dialogs": {
+      "upgrade": {
+        "title": "Upgrade to {{plan}} Plan",
+        "description": "You're about to upgrade to the {{plan}} plan for ${{price}}/month. This change will take effect immediately.",
+        "confirm": "Confirm Upgrade",
+        "cancel": "Cancel"
+      },
+      "cancel": {
+        "title": "Cancel Subscription",
+        "description": "Are you sure you want to cancel your subscription? You'll lose access to premium features at the end of your current billing period.",
+        "confirm": "Yes, Cancel Subscription",
+        "cancel": "Keep Subscription"
+      }
+    },
+    "notifications": {
+      "upgradeSuccess": "Successfully upgraded to {{plan}} plan!",
+      "cancelSuccess": "Subscription cancelled successfully",
+      "upgradeError": "Failed to upgrade subscription",
+      "cancelError": "Failed to cancel subscription"
+    }
+  },
+  "billing": {
+    "title": "Billing & Credits",
+    "subtitle": "Manage your credits and payment methods for PostMeAI",
+    "currentBalance": "Current Balance",
+    "unlimited": "Unlimited",
+    "credits": "Credits",
+    "tabs": {
+      "purchaseCredits": "Purchase Credits",
+      "transactionHistory": "Transaction History"
+    },
+    "creditPackages": {
+      "title": "Credit Packages",
+      "description": "Choose from our pre-built credit packages",
+      "popular": "Most Popular",
+      "credits": "{{credits}} Credits",
+      "price": "${{price}}",
+      "buy": "Buy Credits"
+    },
+    "customPurchase": {
+      "title": "Custom Amount",
+      "description": "Enter a custom credit amount",
+      "label": "Credits",
+      "placeholder": "Enter amount...",
+      "buy": "Buy {{credits}} Credits"
+    },
+    "transactionHistory": {
+      "title": "Transaction History",
+      "description": "View all your credit purchases and transactions",
+      "empty": {
+        "title": "No transactions yet",
+        "description": "Your transaction history will appear here once you make your first purchase."
+      },
+      "columns": {
+        "date": "Date",
+        "type": "Type",
+        "amount": "Amount",
+        "credits": "Credits",
+        "status": "Status",
+        "method": "Payment Method"
+      },
+      "status": {
+        "completed": "Completed",
+        "pending": "Pending",
+        "failed": "Failed"
+      },
+      "types": {
+        "creditPurchase": "Credit Purchase",
+        "subscription": "Subscription",
+        "refund": "Refund"
+      }
+    },
+    "paymentDialog": {
+      "title": "Purchase {{credits}} Credits",
+      "description": "Complete your purchase to add credits to your account",
+      "total": "Total: ${{amount}}"
+    },
+    "notifications": {
+      "purchaseSuccess": "Successfully purchased {{credits}} credits!",
+      "purchaseError": "Failed to purchase credits"
+    }
+  }
+}

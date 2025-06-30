@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(249, 83%, 67%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(269, 83%, 67%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(326, 78%, 67%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(249, 83%, 67%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(269, 83%, 67%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(326, 78%, 67%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Custom gradients */
+.gradient-primary {
+  background: linear-gradient(135deg, hsl(249, 83%, 67%) 0%, hsl(269, 83%, 67%) 100%);
+}
+
+.gradient-hero {
+  background: linear-gradient(135deg, hsl(249, 83%, 67%) 0%, hsl(269, 83%, 67%) 50%, hsl(326, 78%, 67%) 100%);
+}
+
+/* Platform specific colors with official brand colors */
+.platform-facebook { background-color: #1877F2; }
+.platform-instagram { background: linear-gradient(45deg, #833AB4, #FD1D1D, #F77737); }
+.platform-linkedin { background-color: #0A66C2; }
+.platform-tiktok { background-color: #000000; }
+.platform-youtube { background-color: #FF0000; }
+.platform-discord { background-color: #5865F2; }
+.platform-telegram { background-color: #26A5E4; }
+
+/* Animation for notifications */
+@keyframes tinkerbell {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.animate-tinkerbell {
+  animation: tinkerbell 2s ease-in-out infinite;
+}

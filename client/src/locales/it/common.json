@@ -1,0 +1,486 @@
+{
+  "welcome": "Benvenuto",
+  "login": "Accedi",
+  "logout": "Esci",
+  "settings": "Impostazioni",
+  "language": "Lingua",
+  "home": "Home",
+  "post": "Post",
+  "templates": "Modelli",
+  "images": "Immagini",
+  "socialMedia": "Social Media",
+  "billing": "Fatturazione",
+  "subscriptionPlan": "Piano di Abbonamento",
+  "documentation": "Documentazione",
+  "videoDemo": "Demo Video",
+  "pendentPosts": "Post in Attesa",
+  "account": "Account e Fatturazione",
+  "learning": "Apprendimento e Aiuto",
+  "createNewPost": "Crea Nuovo Post",
+  "aiPost": "Post AI",
+  "manualPost": "Post Manuale",
+  "selectLanguage": "Seleziona Lingua",
+  "changeLanguage": "Cambia Lingua",
+  "createFirstPost": "Crea il Tuo Primo Post",
+  "watchDemo": "Guarda Demo",
+  "turnIdeasViral": "Trasforma le Idee in Contenuti Virali",
+  "postSmarter": "Posta in Modo Più Intelligente con PostMeAI.",
+  "home": {
+    "hero": {
+      "title": "Trasforma le Idee in Contenuti Virali",
+      "subtitle": "Posta in Modo Più Intelligente con PostMeAI.",
+      "createButton": "Crea il Tuo Primo Post",
+      "demoButton": "Guarda Demo"
+    },
+    "whatIs": {
+      "title": "Cos'è PostMeAI?",
+      "description": "PostMeAI è una piattaforma completa di gestione dei social media alimentata da IA, progettata per trasformare il modo in cui creatori di contenuti e aziende approcciano i social media. La nostra piattaforma combina intelligenza artificiale all'avanguardia con design intuitivo per automatizzare la creazione di contenuti, ottimizzare i programmi di pubblicazione e massimizzare l'engagement su tutte le principali reti sociali."
+    },
+    "forCreators": {
+      "title": "Per Creatori di Contenuti",
+      "items": {
+        "0": "Generazione di contenuti con IA che rispecchia il tuo stile e la tua voce unici",
+        "1": "Programmi di pubblicazione automatizzati ottimizzati per il massimo engagement",
+        "2": "Adattamento dei contenuti multi-piattaforma con ottimizzazione specifica per ogni piattaforma",
+        "3": "Analisi avanzate per tracciare performance e crescita su tutti i canali",
+        "4": "Sistema di template per branding consistente e temi di contenuto ricorrenti"
+      }
+    },
+    "forBusinesses": {
+      "title": "Per Aziende",
+      "items": {
+        "0": "Generazione di contenuti coerenti con il brand allineata alla tua strategia di marketing",
+        "1": "Strumenti di collaborazione di squadra con accesso basato sui ruoli e flussi di approvazione",
+        "2": "Analisi di livello aziendale con tracking ROI e insights sulle performance",
+        "3": "Integrazioni API personalizzate per automazione perfetta del flusso di lavoro",
+        "4": "Soluzioni white-label per agenzie e implementazioni su larga scala"
+      }
+    }
+  },
+  "socialMedia": {
+    "title": "Piattaforme Social Media",
+    "subtitle": "Connetti e gestisci i tuoi account sui social media",
+    "explanation": {
+      "title": "Come Funziona l'Integrazione con i Social Media",
+      "items": {
+        "0": "Configura le chiavi API per ogni piattaforma che vuoi utilizzare",
+        "1": "Testa le connessioni per verificare che le tue credenziali funzionino",
+        "2": "Attiva/disattiva le piattaforme per la pubblicazione di contenuti",
+        "3": "PostMeAI formatterà automaticamente i contenuti per ogni piattaforma selezionata",
+        "4": "Monitora lo stato della connessione e risolvi eventuali problemi"
+      }
+    },
+    "selectedPlatforms": "Piattaforme Selezionate",
+    "platformsCount": "{{count}} piattaforme selezionate per la pubblicazione di contenuti",
+    "configuration": "Configurazione Piattaforma",
+    "platformName": "Piattaforma",
+    "status": "Stato",
+    "apiKey": "Chiave API",
+    "actions": "Azioni",
+    "connected": "Connesso",
+    "failed": "Fallito",
+    "testing": "Testando...",
+    "readyToTest": "Pronto per il test",
+    "testConnection": "TESTA",
+    "enabled": "Attivato",
+    "disabled": "Disattivato",
+    "enterApiKey": "Inserisci la tua chiave API di {{platform}}",
+    "apiKeyRequired": "La chiave API è richiesta per testare la connessione",
+    "saveConfiguration": "Salva Configurazione",
+    "saving": "Salvando...",
+    "testingConnection": "Testando connessione...",
+    "connectionSuccess": "Connessione riuscita!",
+    "connectionFailed": "Connessione fallita",
+    "configurationSaved": "Configurazione salvata con successo"
+  },
+  "pendentPosts": {
+    "title": "Post in Attesa di Revisione",
+    "subtitle": "Rivedi e approva i post programmati prima che vengano pubblicati. I post con modalità di esecuzione \"Revisione\" richiedono la tua approvazione.",
+    "noPosts": {
+      "title": "Tutto a Posto!",
+      "description": "Al momento non ci sono post in attesa della tua revisione."
+    },
+    "contentPreview": "Anteprima del Contenuto:",
+    "publishingPlatforms": "Piattaforme di Pubblicazione:",
+    "template": "Template:",
+    "pendingReview": "In Attesa di Revisione",
+    "reviewMode": "Modalità Revisione",
+    "autoMode": "Modalità Automatica",
+    "buttons": {
+      "edit": "Modifica",
+      "reject": "Rifiuta", 
+      "approve": "Approva",
+      "cancel": "Annulla",
+      "saveChanges": "Salva Modifiche"
+    },
+    "editDialog": {
+      "title": "Modifica Contenuto del Post",
+      "description": "Apporta modifiche al contenuto del post prima dell'approvazione.",
+      "titleLabel": "Titolo",
+      "contentLabel": "Contenuto"
+    },
+    "toast": {
+      "postApproved": {
+        "title": "Post Approvato",
+        "description": "Il post è stato approvato e sarà pubblicato come programmato."
+      },
+      "postRejected": {
+        "title": "Post Rifiutato", 
+        "description": "Il post è stato rifiutato e rimosso dalla programmazione."
+      },
+      "postUpdated": {
+        "title": "Post Aggiornato",
+        "description": "Il contenuto del post è stato aggiornato con successo."
+      }
+    }
+  },
+  "documentation": {
+    "title": "Documentazione PostMeAI",
+    "subtitle": "Guida completa all'uso di PostMeAI per la creazione e gestione di contenuti sui social media",
+    "overview": {
+      "title": "Panoramica",
+      "description": "PostMeAI è una piattaforma di gestione dei social media alimentata da IA che ti aiuta a creare, ottimizzare e pubblicare contenuti su più piattaforme automaticamente.",
+      "aiContent": {
+        "title": "Generazione di Contenuti AI",
+        "description": "Genera post coinvolgenti automaticamente usando algoritmi AI avanzati"
+      },
+      "multiPlatform": {
+        "title": "Pubblicazione Multi-Piattaforma",
+        "description": "Pubblica su oltre 7 piattaforme social con ottimizzazione specifica per ogni piattaforma"
+      },
+      "scheduling": {
+        "title": "Programmazione Intelligente",
+        "description": "Automatizza il tuo programma di pubblicazione con timing intelligente"
+      }
+    },
+    "platforms": {
+      "title": "Piattaforme Social Media Supportate",
+      "description": "PostMeAI supporta la creazione e pubblicazione di contenuti per le seguenti piattaforme:",
+      "facebook": "Post, immagini, link",
+      "instagram": "Foto, storie, reel",
+      "linkedin": "Post professionali, articoli",
+      "tiktok": "Video brevi, tendenze",
+      "youtube": "Video, post della community",
+      "discord": "Messaggi del server, embed",
+      "telegram": "Post del canale, media"
+    },
+    "aiPost": {
+      "title": "Creazione Post con IA",
+      "features": "Caratteristiche:",
+      "workflow": "Flusso di Lavoro:",
+      "featuresList": [
+        "Generazione di contenuti basata su argomenti (fino a 400 caratteri)",
+        "Modalità di esecuzione: Revisione o Post Automatico",
+        "Lunghezza del testo personalizzabile (50-1000 caratteri)",
+        "Supporto per oltre 20 lingue",
+        "Generazione opzionale di immagini AI",
+        "Ottimizzazione del contenuto specifica della piattaforma"
+      ],
+      "workflowList": [
+        "Inserisci il tuo argomento/tema",
+        "Configura le impostazioni di generazione",
+        "Rivedi il contenuto generato",
+        "Personalizza per ogni piattaforma",
+        "Pubblica o programma"
+      ]
+    },
+    "manualPost": {
+      "title": "Creazione Post Manuale",
+      "features": "Caratteristiche:",
+      "imageManagement": "Gestione Immagini:",
+      "featuresList": [
+        "Creazione personalizzata di titolo e contenuto",
+        "Selezione multipla di immagini dalla biblioteca",
+        "Selezione targeting piattaforma",
+        "Supporto per link e URL",
+        "Supporto multi-lingua",
+        "Conteggio caratteri in tempo reale"
+      ],
+      "imageList": [
+        "Struttura organizzata di cartelle",
+        "Carica più immagini contemporaneamente",
+        "Funzionalità di anteprima ed eliminazione",
+        "Filtra per categorie di cartelle"
+      ]
+    },
+    "templates": {
+      "title": "Gestione Template",
+      "features": "Caratteristiche:",
+      "scheduling": "Opzioni di Programmazione:",
+      "featuresList": [
+        "Salva configurazioni post come template riutilizzabili",
+        "Programmazione automatizzata (giornaliera, settimanale, mensile)",
+        "Esecuzione e gestione template",
+        "Traccia date di creazione ed esecuzione",
+        "Controllo stato attivo/inattivo"
+      ],
+      "schedulingList": [
+        "Giornaliero - Posta ogni giorno all'ora specificata",
+        "Settimanale - Posta una volta a settimana",
+        "Mensile - Posta una volta al mese",
+        "Supporto fuso orario per programmazione precisa"
+      ]
+    },
+    "socialMedia": {
+      "title": "Integrazione Social Media",
+      "apiConfig": "Configurazione API:",
+      "setupRequirements": "Requisiti di Configurazione:",
+      "apiList": [
+        "Gestione sicura delle chiavi API",
+        "Configurazione connessione specifica della piattaforma",
+        "Monitoraggio stato connessione",
+        "Protezione password con toggle visibilità"
+      ],
+      "setupList": [
+        "Facebook: Facebook Developers App",
+        "Instagram: Facebook Graph API",
+        "LinkedIn: LinkedIn Developer Program",
+        "TikTok: TikTok per Sviluppatori",
+        "YouTube: Google Cloud Console",
+        "Discord: Discord Developer Portal",
+        "Telegram: Token BotFather"
+      ]
+    },
+    "imageLibrary": {
+      "title": "Gestione Biblioteca Immagini",
+      "description": "Organizza e gestisci le tue immagini con un sistema di biblioteca completo",
+      "organization": "Caratteristiche di Organizzazione:",
+      "management": "Azioni di Gestione:",
+      "organizationList": [
+        "Sistema di organizzazione basato su cartelle",
+        "Filtra immagini per categorie di cartelle",
+        "Crea cartelle personalizzate per progetti",
+        "Metadati e dettagli immagine"
+      ],
+      "managementList": [
+        "Carica più immagini simultaneamente",
+        "Anteprima immagini in modal a schermo intero",
+        "Elimina immagini con conferma",
+        "Azioni hover per accesso rapido"
+      ]
+    },
+    "gettingStarted": {
+      "title": "Iniziare",
+      "description": "Segui questi passaggi per iniziare a creare e pubblicare contenuti con PostMeAI",
+      "steps": [
+        {
+          "title": "Configura Account Social Media",
+          "description": "Naviga alla pagina Social Media e aggiungi le tue chiavi API per ogni piattaforma che vuoi usare."
+        },
+        {
+          "title": "Carica Immagini (Opzionale)",
+          "description": "Vai alla pagina Immagini per caricare e organizzare i tuoi contenuti visivi in cartelle."
+        },
+        {
+          "title": "Crea il Tuo Primo Post",
+          "description": "Scegli tra creazione post con IA o manuale dalla pagina Post."
+        },
+        {
+          "title": "Rivedi e Personalizza",
+          "description": "Rivedi il contenuto generato e personalizzalo per ogni piattaforma prima di pubblicare."
+        },
+        {
+          "title": "Pubblica o Programma",
+          "description": "Pubblica immediatamente o salva come template per programmazione automatizzata."
+        }
+      ]
+    },
+    "bestPractices": {
+      "title": "Migliori Pratiche",
+      "contentCreation": "Creazione Contenuti:",
+      "schedulingTemplates": "Programmazione e Template:",
+      "contentList": [
+        "Mantieni gli argomenti chiari e specifici per migliori risultati AI",
+        "Usa lunghezze di testo appropriate per ogni piattaforma",
+        "Includi link rilevanti per dirigere il traffico",
+        "Seleziona immagini di alta qualità che si abbinano al tuo contenuto",
+        "Rivedi le variazioni specifiche della piattaforma prima di pubblicare"
+      ],
+      "schedulingList": [
+        "Imposta template per pubblicazione consistente",
+        "Considera i tempi di pubblicazione ottimali per il tuo pubblico",
+        "Usa la modalità revisione per contenuti importanti",
+        "Organizza immagini in strutture di cartelle significative",
+        "Monitora le prestazioni dei template e regola se necessario"
+      ]
+    }
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "tabs": {
+      "profile": "Profilo",
+      "notifications": "Notifiche",
+      "theme": "Tema",
+      "company": "Azienda",
+      "security": "Sicurezza"
+    },
+    "profile": {
+      "title": "Impostazioni Profilo",
+      "description": "Gestisci le tue informazioni personali e preferenze",
+      "changePhoto": "Cambia Foto",
+      "remove": "Rimuovi",
+      "fileLimit": "JPG, PNG fino a 5MB",
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "email": "Indirizzo Email",
+      "bio": "Biografia",
+      "bioPlaceholder": "Raccontaci di te...",
+      "timezone": "Fuso Orario",
+      "language": "Lingua",
+      "saveProfile": "Salva Profilo",
+      "saving": "Salvando...",
+      "timezones": {
+        "UTC": "UTC",
+        "EST": "EST (Est)",
+        "PST": "PST (Pacifico)",
+        "CET": "CET (Europa Centrale)",
+        "JST": "JST (Giappone)"
+      },
+      "languages": {
+        "en": "Inglese",
+        "es": "Spagnolo",
+        "fr": "Francese",
+        "de": "Tedesco",
+        "pt": "Portoghese"
+      },
+      "toast": {
+        "photoRemoved": "Foto profilo rimossa",
+        "photoRemovedDesc": "La tua foto profilo è stata rimossa",
+        "saved": "Profilo aggiornato con successo",
+        "error": "Errore nell'aggiornamento del profilo"
+      }
+    },
+    "notifications": {
+      "title": "Impostazioni Notifiche",
+      "description": "Scegli come vuoi essere notificato delle attività",
+      "emailNotifications": {
+        "title": "Notifiche Email",
+        "description": "Ricevi notifiche via email"
+      },
+      "pushNotifications": {
+        "title": "Notifiche Push",
+        "description": "Ricevi notifiche push del browser"
+      },
+      "postReminders": {
+        "title": "Promemoria Post",
+        "description": "Promemoria per post programmati"
+      },
+      "templateExecution": {
+        "title": "Esecuzione Template",
+        "description": "Notifiche quando i template vengono eseguiti"
+      },
+      "weeklyReports": {
+        "title": "Report Settimanali",
+        "description": "Riassunti prestazioni via email"
+      },
+      "marketingEmails": {
+        "title": "Email Marketing",
+        "description": "Aggiornamenti prodotti e suggerimenti"
+      },
+      "saveNotifications": "Salva Notifiche",
+      "toast": {
+        "saved": "Impostazioni notifiche aggiornate con successo",
+        "error": "Errore nell'aggiornamento delle notifiche"
+      }
+    },
+    "theme": {
+      "title": "Tema e Aspetto",
+      "description": "Personalizza come appare e funziona PostMeAI",
+      "theme": "Tema",
+      "primaryColor": "Colore Primario",
+      "compactMode": {
+        "title": "Modalità Compatta",
+        "description": "Riduci spaziatura per più contenuto"
+      },
+      "sidebarCollapsed": {
+        "title": "Barra Laterale Collassata",
+        "description": "Inizia con barra laterale minimizzata"
+      },
+      "themes": {
+        "light": "Chiaro",
+        "dark": "Scuro",
+        "auto": "Automatico (Sistema)"
+      },
+      "colors": {
+        "purple": "Viola",
+        "blue": "Blu",
+        "green": "Verde",
+        "orange": "Arancione",
+        "red": "Rosso"
+      },
+      "saveTheme": "Salva Tema",
+      "toast": {
+        "saved": "Impostazioni tema aggiornate con successo",
+        "error": "Errore nell'aggiornamento del tema"
+      }
+    },
+    "company": {
+      "title": "Impostazioni Azienda",
+      "description": "Gestisci le informazioni e il brand della tua azienda",
+      "companyName": "Nome Azienda",
+      "companyLogo": "Logo Azienda",
+      "changeLogo": "Cambia Logo",
+      "removeLogo": "Rimuovi Logo",
+      "website": "Sito Web",
+      "industry": "Settore",
+      "teamSize": "Dimensione Team",
+      "brandColors": "Colori Brand",
+      "primaryColor": "Colore Primario",
+      "secondaryColor": "Colore Secondario",
+      "accentColor": "Colore Accento",
+      "industries": {
+        "technology": "Tecnologia",
+        "healthcare": "Sanità",
+        "finance": "Finanza",
+        "education": "Educazione",
+        "retail": "Vendita al Dettaglio",
+        "manufacturing": "Manifattura",
+        "consulting": "Consulenza",
+        "other": "Altro"
+      },
+      "teamSizes": {
+        "1": "Solo io",
+        "2-10": "2-10 dipendenti",
+        "11-50": "11-50 dipendenti",
+        "51-200": "51-200 dipendenti",
+        "200+": "200+ dipendenti"
+      },
+      "saveCompany": "Salva Azienda",
+      "toast": {
+        "logoRemoved": "Logo azienda rimosso",
+        "logoRemovedDesc": "Il logo della tua azienda è stato rimosso",
+        "saved": "Impostazioni azienda aggiornate con successo",
+        "error": "Errore nell'aggiornamento delle impostazioni azienda"
+      }
+    },
+    "security": {
+      "title": "Sicurezza e Privacy",
+      "description": "Gestisci la sicurezza del tuo account e le preferenze privacy",
+      "sessionTimeout": "Timeout Sessione",
+      "autoSave": {
+        "title": "Salvataggio Automatico",
+        "description": "Salva automaticamente le bozze mentre scrivi"
+      },
+      "rememberLogin": {
+        "title": "Ricorda Login",
+        "description": "Resta connesso su questo dispositivo"
+      },
+      "twoFactorAuth": {
+        "title": "Autenticazione a Due Fattori",
+        "description": "Aggiungi sicurezza extra al tuo account"
+      },
+      "timeouts": {
+        "15": "15 minuti",
+        "30": "30 minuti",
+        "60": "1 ora",
+        "240": "4 ore",
+        "never": "Mai"
+      },
+      "saveSecurity": "Salva Sicurezza",
+      "toast": {
+        "saved": "Impostazioni sicurezza aggiornate con successo",
+        "error": "Errore nell'aggiornamento delle impostazioni sicurezza"
+      }
+    }
+  }
+}
