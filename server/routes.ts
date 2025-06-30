@@ -155,9 +155,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", passport.authenticate("local"), (req, res) => {
-    res.json({ user: req.user });
+  // app.post("/api/auth/login", passport.authenticate("local"), (req, res) => {
+  //   res.json({ user: req.user });
+  // });
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: Express.User, info: { message: any; }) => {
+      console.log("[Route] /api/auth/login callback:", { err, user, info });
+      if (err)   return next(err);
+      if (!user) return res.status(401).json({ message: info?.message || "Unauthorized" });
+      req.login(user, loginErr => {
+        if (loginErr) {
+          console.error("[Route] req.login error:", loginErr);
+          return next(loginErr);
+        }
+        console.log("[Route] login succeeded, session:", req.sessionID);
+        res.json({ user });
+      });
+    })(req, res, next);
   });
+  
+
+
 
   app.post("/api/auth/logout", (req, res) => {
     req.logout((err) => {

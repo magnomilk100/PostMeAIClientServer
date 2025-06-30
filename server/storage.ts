@@ -146,17 +146,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async authenticateUser(email: string, password: string): Promise<User | null> {
+    console.log(`[Storage] authenticateUser() called for ${email}`);
     const user = await this.getUserByEmail(email);
+    console.log(`[Storage] getUserByEmail returned:`, user);
     if (!user || !user.password || user.authProvider !== "local") {
+      console.log(`[Storage] No local user found for ${email}`);
       return null;
     }
     
     const isValid = await bcrypt.compare(password, user.password);
+    console.log(`[Storage] password compare result for ${email}:`, isValid);
     if (!isValid) {
       return null;
     }
     
     await this.updateLastAuthMethod(user.id, "local");
+    console.log(`[Storage] updateLastAuthMethod done for ${email}`);
     return user;
   }
 

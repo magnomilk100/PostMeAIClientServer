@@ -58,13 +58,18 @@ export function setupAuth(app: Express) {
     usernameField: "email",
     passwordField: "password"
   }, async (email, password, done) => {
+    console.log("[Auth] LocalStrategy invoked for:", email);
     try {
       const user = await storage.authenticateUser(email, password);
+      console.log("[Auth] storage.authenticateUser returned:", user);
       if (!user) {
+        console.log("[Auth] Authentication failed for:", email);
         return done(null, false, { message: "Invalid email or password" });
       }
+      console.log("[Auth] Authentication success for:", email);
       return done(null, user);
     } catch (error) {
+      console.error("[Auth] Error in LocalStrategy:", error);
       return done(error);
     }
   }));
