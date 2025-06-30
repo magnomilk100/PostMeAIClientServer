@@ -32,6 +32,7 @@ export function setupAuth(app: Express) {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",          // or "none" if you need cross-site cookies, added CHATGPT
       maxAge: sessionTtl,
     },
   }));
