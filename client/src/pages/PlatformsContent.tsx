@@ -246,20 +246,20 @@ export default function PlatformsContent() {
   const platformContent = generatedContent.platformContent || {};
 
   return (
-    <div className="px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Platform-Specific Content</h1>
+    <div className="page-content">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Platform-Specific Content</h1>
       <div className="max-w-7xl mx-auto">
         {/* Subject (Non-editable) */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <h2 className="text-lg font-semibold mb-3 text-gray-900">Subject</h2>
-          <div className="text-gray-700">{post.subject}</div>
+        <div className="modern-card p-6 mb-8">
+          <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Subject</h2>
+          <div className="text-gray-700 dark:text-gray-300">{post.subject}</div>
         </div>
 
         {/* Mock API Response Display */}
         {post.status && post.status.includes("MOCK") && (
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl shadow-sm p-6 mb-8 border border-purple-200">
-            <h2 className="text-lg font-semibold mb-4 text-purple-900 flex items-center">
-              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm mr-3">API Response</span>
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl shadow-sm p-6 mb-8 border border-purple-200 dark:border-purple-800">
+            <h2 className="text-lg font-semibold mb-4 text-purple-900 dark:text-purple-200 flex items-center">
+              <span className="bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-1 rounded text-sm mr-3">API Response</span>
               Mock REST API Response
             </h2>
             
@@ -267,8 +267,8 @@ export default function PlatformsContent() {
               {/* Basic Post Information */}
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-medium text-gray-900 mb-2">Post Details</h3>
-                  <div className="space-y-2 text-sm">
+                  <h3 className="font-medium text-gray-900 dark:text-white mb-2">Post Details</h3>
+                  <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                     <div><span className="font-medium">ID:</span> {post.id}</div>
                     <div><span className="font-medium">Title:</span> {post.title}</div>
                     <div><span className="font-medium">Language:</span> {post.language}</div>
@@ -282,8 +282,8 @@ export default function PlatformsContent() {
                 {/* Content Analysis */}
                 {post.contentAnalysis && (
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">Content Analysis</h3>
-                    <div className="space-y-1 text-sm">
+                    <h3 className="font-medium text-gray-900 dark:text-white mb-2">Content Analysis</h3>
+                    <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                       <div><span className="font-medium">Word Count:</span> {post.contentAnalysis.wordCount}</div>
                       <div><span className="font-medium">Character Count:</span> {post.contentAnalysis.characterCount}</div>
                       <div><span className="font-medium">Readability:</span> {post.contentAnalysis.readabilityScore}</div>
@@ -298,13 +298,13 @@ export default function PlatformsContent() {
                 {/* Platform Optimization */}
                 {post.platformOptimization && (
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">Platform Optimization</h3>
+                    <h3 className="font-medium text-gray-900 dark:text-white mb-2">Platform Optimization</h3>
                     <div className="space-y-2 text-sm">
                       {Object.entries(post.platformOptimization).map(([platform, data]: [string, any]) => (
-                        <div key={platform} className="border border-gray-200 rounded p-2">
-                          <div className="font-medium capitalize">{platform}</div>
-                          <div className="text-xs text-gray-600">{data.status}</div>
-                          <div className="text-xs text-blue-600">{data.hashtags?.join(', ')}</div>
+                        <div key={platform} className="border border-gray-200 dark:border-gray-700 rounded p-2 bg-white dark:bg-gray-800">
+                          <div className="font-medium capitalize text-gray-900 dark:text-white">{platform}</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">{data.status}</div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400">{data.hashtags?.join(', ')}</div>
                         </div>
                       ))}
                     </div>
@@ -314,8 +314,8 @@ export default function PlatformsContent() {
                 {/* Metadata */}
                 {post.metadata && (
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">Request Metadata</h3>
-                    <div className="space-y-1 text-sm">
+                    <h3 className="font-medium text-gray-900 dark:text-white mb-2">Request Metadata</h3>
+                    <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                       <div><span className="font-medium">Created By:</span> {post.metadata.createdBy}</div>
                       <div><span className="font-medium">User Agent:</span> {post.metadata.userAgent}</div>
                       <div><span className="font-medium">IP Address:</span> {post.metadata.ipAddress}</div>
@@ -329,12 +329,12 @@ export default function PlatformsContent() {
             {/* Selected Images */}
             {post.selectedImages && Array.isArray(post.selectedImages) && post.selectedImages.length > 0 && (
               <div className="mt-4">
-                <h3 className="font-medium text-gray-900 mb-2">Selected Images</h3>
+                <h3 className="font-medium text-gray-900 dark:text-white mb-2">Selected Images</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {post.selectedImages.map((image: any, index: number) => (
-                    <div key={index} className="border border-gray-200 rounded p-2">
-                      <div className="text-xs font-medium">{image.id || `Image ${index + 1}`}</div>
-                      <div className="text-xs text-gray-600">{image.name}</div>
+                    <div key={index} className="border border-gray-200 dark:border-gray-700 rounded p-2 bg-white dark:bg-gray-800">
+                      <div className="text-xs font-medium text-gray-900 dark:text-white">{image.id || `Image ${index + 1}`}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">{image.name}</div>
                       {image.url && !image.url.includes("MOCK") && (
                         <img src={image.url} alt={image.name} className="w-full h-16 object-cover rounded mt-1" />
                       )}
@@ -347,10 +347,10 @@ export default function PlatformsContent() {
             {/* Platforms */}
             {post.platforms && Array.isArray(post.platforms) && (
               <div className="mt-4">
-                <h3 className="font-medium text-gray-900 mb-2">Target Platforms</h3>
+                <h3 className="font-medium text-gray-900 dark:text-white mb-2">Target Platforms</h3>
                 <div className="flex flex-wrap gap-2">
                   {post.platforms.map((platform: string, index: number) => (
-                    <span key={index} className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                    <span key={index} className="bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-1 rounded text-xs">
                       {platform}
                     </span>
                   ))}
@@ -372,7 +372,7 @@ export default function PlatformsContent() {
             const PlatformIcon = getPlatformIcon(platform.id);
             
             return (
-              <div key={platform.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div key={platform.id} className="modern-card overflow-hidden">
                 <div className={`${platform.bgColor} p-4 flex items-center space-x-2`}>
                   <div className="text-white text-lg">
                     <PlatformIcon />
@@ -380,14 +380,14 @@ export default function PlatformsContent() {
                   <span className="text-white font-semibold">{platform.name}</span>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold mb-2">{content.title}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{content.body}</p>
+                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">{content.title}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{content.body}</p>
                   
                   {/* Image Display Logic */}
                   {isManualPost && generatedContent.selectedImages && generatedContent.selectedImages.length > 0 ? (
                     /* Show selected images from manual post */
                     <div className="space-y-2">
-                      <p className="text-xs text-gray-500 font-medium">Selected Images ({generatedContent.selectedImages.length})</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Selected Images ({generatedContent.selectedImages.length})</p>
                       <div className="grid grid-cols-2 gap-2">
                         {generatedContent.selectedImages.map((image: any, index: number) => (
                           <img 
@@ -414,8 +414,8 @@ export default function PlatformsContent() {
         </div>
 
         {/* Publishing Options */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-6 text-gray-900">Publishing Options</h2>
+        <div className="modern-card p-6">
+          <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Publishing Options</h2>
           
           {/* Master Checkbox */}
           <div className="mb-4">

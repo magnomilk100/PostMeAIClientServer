@@ -328,25 +328,25 @@ export default function ManualPost() {
   }
 
   return (
-    <div className="px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Create Your Post Manually</h1>
+    <div className="page-content">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Create Your Post Manually</h1>
       <div className="max-w-4xl mx-auto">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="bg-white rounded-xl shadow-sm p-8 space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="modern-card p-8 space-y-6">
             
             {/* AI/Manual Toggle */}
-            <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+            <Card className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-purple-200 dark:border-purple-800">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      {useAI ? <Brain className="w-5 h-5 text-purple-600" /> : <Edit className="w-5 h-5 text-purple-600" />}
+                    <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-lg">
+                      {useAI ? <Brain className="w-5 h-5 text-purple-600 dark:text-purple-300" /> : <Edit className="w-5 h-5 text-purple-600 dark:text-purple-300" />}
                     </div>
                     <div>
-                      <CardTitle className="text-lg">
+                      <CardTitle className="text-lg text-gray-900 dark:text-white">
                         {useAI ? "AI-Assisted Post Creation" : "Manual Post Creation"}
                       </CardTitle>
-                      <CardDescription>
+                      <CardDescription className="text-gray-600 dark:text-gray-300">
                         {useAI 
                           ? "Let AI generate your post title and content based on your subject description"
                           : "Create your post title and content manually"
@@ -545,7 +545,7 @@ export default function ManualPost() {
               <div className="mt-3 space-y-4">
                 {/* Selected Images */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Selected Images ({selectedImages.length}/{MAX_IMAGES})
                     {selectedImages.length >= MAX_IMAGES && (
                       <Badge variant="destructive" className="ml-2">Maximum reached</Badge>
@@ -576,7 +576,7 @@ export default function ManualPost() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500 py-4 border-2 border-dashed border-gray-200 rounded-lg text-center">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center bg-gray-50 dark:bg-gray-800/50">
                       No images selected. You can select up to {MAX_IMAGES} images.
                     </div>
                   )}
@@ -595,8 +595,8 @@ export default function ManualPost() {
 
                 {/* Image Library */}
                 {showImageSelector && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Available Images by Folder</h4>
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Available Images by Folder</h4>
                     
                     {/* Loading State */}
                     {(imagesLoading || foldersLoading) && (
@@ -663,7 +663,7 @@ export default function ManualPost() {
                             
                             {/* Folder Images (Expandable) */}
                             {isExpanded && (
-                              <div className="px-3 pb-3 border-t border-gray-100">
+                              <div className="px-3 pb-3 border-t border-gray-100 dark:border-gray-700">
                                 <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mt-3">
                                   {folderImages.map((image) => {
                                     const isSelected = selectedImages.find(img => img.id === image.id);
@@ -676,8 +676,8 @@ export default function ManualPost() {
                                           isSelected 
                                             ? "border-primary shadow-md" 
                                             : isDisabled 
-                                              ? "border-gray-200 opacity-50 cursor-not-allowed"
-                                              : "border-gray-200 hover:border-gray-300"
+                                              ? "border-gray-200 dark:border-gray-600 opacity-50 cursor-not-allowed"
+                                              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
                                         }`}
                                         onClick={() => !isDisabled && handleImageSelect(image)}
                                       >
@@ -715,12 +715,12 @@ export default function ManualPost() {
                     
                     {/* Tips section - show regardless of loading state */}
                     {!imagesLoading && !foldersLoading && (
-                      <div className="mt-4 text-xs text-gray-600 bg-blue-50 p-3 rounded-lg">
+                      <div className="mt-4 text-xs text-gray-600 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                       <div className="flex items-center space-x-2 mb-1">
-                        <div className="w-4 h-4 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 text-xs">i</span>
+                        <div className="w-4 h-4 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 dark:text-blue-300 text-xs">i</span>
                         </div>
-                        <span className="font-medium">Image Selection Tips:</span>
+                        <span className="font-medium text-gray-700 dark:text-gray-200">Image Selection Tips:</span>
                       </div>
                       <ul className="ml-6 space-y-1">
                         <li>• Click folder names to expand and browse images</li>

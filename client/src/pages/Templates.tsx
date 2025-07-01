@@ -148,12 +148,12 @@ export default function Templates() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="page-content">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Templates</h1>
-          <p className="text-gray-600 mt-2">Manage your automated posting templates</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Templates</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your automated posting templates</p>
         </div>
         <Button 
           onClick={handleCreateNewTemplate} 
@@ -166,34 +166,56 @@ export default function Templates() {
 
       {/* Templates Explanation Accordion */}
       <Accordion type="single" collapsible className="mb-8">
-        <AccordionItem value="explanation">
-          <AccordionTrigger className="flex items-center space-x-2">
-            <HelpCircle className="w-5 h-5 text-blue-500" />
-            <span>What are Templates?</span>
+        <AccordionItem value="explanation" className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-purple-200 dark:border-purple-700 rounded-lg px-4">
+          <AccordionTrigger className="text-purple-700 dark:text-purple-300 hover:no-underline">
+            <div className="flex items-center">
+              <HelpCircle className="w-5 h-5 mr-2" />
+              What are Templates?
+            </div>
           </AccordionTrigger>
-          <AccordionContent>
-            <div className="bg-blue-50 p-6 rounded-lg space-y-4">
+          <AccordionContent className="space-y-4 pb-4">
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+              Templates are powerful automation tools that create and publish AI-generated content on a recurring schedule. 
+              They save you time by automatically generating fresh, engaging content based on your predefined settings.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
               <div className="flex items-start space-x-3">
-                <Repeat className="w-6 h-6 text-blue-500 mt-1 flex-shrink-0" />
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <Repeat className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Automated Scheduling</h3>
-                  <p className="text-gray-600">Templates run automatically based on your configured schedule (daily, weekly, monthly)</p>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Automated Scheduling</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Templates run automatically based on your configured schedule (daily, weekly, monthly)</p>
                 </div>
               </div>
+              
               <div className="flex items-start space-x-3">
-                <Zap className="w-6 h-6 text-blue-500 mt-1 flex-shrink-0" />
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">AI Content Generation</h3>
-                  <p className="text-gray-600">Each template execution generates fresh AI content based on your original subject and settings</p>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">AI Content Generation</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Each template execution generates fresh AI content based on your original subject and settings</p>
                 </div>
               </div>
+              
               <div className="flex items-start space-x-3">
-                <Layers className="w-6 h-6 text-blue-500 mt-1 flex-shrink-0" />
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Multi-Platform Publishing</h3>
-                  <p className="text-gray-600">Content is automatically adapted and published to all your configured social media platforms</p>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Multi-Platform Publishing</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Content is automatically adapted and published to all your configured social media platforms</p>
                 </div>
               </div>
+            </div>
+            
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-purple-200 dark:border-purple-700 mt-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Pro Tip:</strong> Templates with Review execution mode require approval before publishing, while Auto mode 
+                publishes content immediately without human intervention.
+              </p>
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -207,15 +229,15 @@ export default function Templates() {
             <span>Your Templates</span>
           </CardTitle>
           <CardDescription>
-            {templates.length} template{templates.length !== 1 ? 's' : ''} configured
+            {templates?.length || 0} template{(templates?.length || 0) !== 1 ? 's' : ''} configured
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {templates.length === 0 ? (
+          {(templates?.length || 0) === 0 ? (
             <div className="text-center py-12">
-              <Layers className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Templates Yet</h3>
-              <p className="text-gray-600 mb-6">Create your first automated posting template to get started</p>
+              <Layers className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Templates Yet</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">Create your first automated posting template to get started</p>
               <Button 
                 onClick={handleCreateNewTemplate} 
                 className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-2 rounded-lg shadow-sm transition-all duration-200"
@@ -225,44 +247,46 @@ export default function Templates() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b-2">
-                    <TableHead className="font-semibold text-gray-900">Name</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Objective</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Date Creation</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Last Execution</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Schedule</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Status</TableHead>
-                    <TableHead className="text-right font-semibold text-gray-900">Actions</TableHead>
+                  <TableRow className="border-b-2 dark:border-gray-700">
+                    <TableHead className="font-semibold text-gray-900 dark:text-white">Name</TableHead>
+                    <TableHead className="font-semibold text-gray-900 dark:text-white">Objective</TableHead>
+                    <TableHead className="font-semibold text-gray-900 dark:text-white">Date Creation</TableHead>
+                    <TableHead className="font-semibold text-gray-900 dark:text-white">Last Execution</TableHead>
+                    <TableHead className="font-semibold text-gray-900 dark:text-white">Schedule</TableHead>
+                    <TableHead className="font-semibold text-gray-900 dark:text-white">Status</TableHead>
+                    <TableHead className="text-right font-semibold text-gray-900 dark:text-white">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {templates.map((template) => (
-                    <TableRow key={template.id} className="hover:bg-gray-50 border-b">
+                  {templates?.map((template) => (
+                    <TableRow key={template.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 border-b dark:border-gray-700">
                       <TableCell className="py-4">
-                        <div className="font-medium text-gray-900">{template.name}</div>
+                        <div className="font-medium text-gray-900 dark:text-white">{template.name}</div>
                       </TableCell>
                       <TableCell className="py-4">
-                        <div className="max-w-xs truncate text-gray-600">
+                        <div className="max-w-xs truncate text-gray-600 dark:text-gray-300">
                           {template.objective}
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
                           {formatDate(template.createdAt)}
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
                           {formatDate(template.lastExecutedAt)}
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
                         <div className="text-sm">
-                          <div className="font-medium text-gray-900">{template.frequency}</div>
-                          <div className="text-gray-500">{formatTime(template.time, template.timezone)}</div>
+                          <div className="font-medium text-gray-900 dark:text-white">{template.frequency}</div>
+                          <div className="text-gray-500 dark:text-gray-400">{formatTime(template.time, template.timezone)}</div>
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
@@ -272,7 +296,7 @@ export default function Templates() {
                             onCheckedChange={() => handleToggleStatus(template.id)}
                             disabled={toggleStatusMutation.isPending}
                           />
-                          <span className={`text-sm font-medium ${template.isActive ? 'text-green-600' : 'text-gray-400'}`}>
+                          <span className={`text-sm font-medium ${template.isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
                             {template.isActive ? "Active" : "Inactive"}
                           </span>
                         </div>
@@ -355,7 +379,122 @@ export default function Templates() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+
+              {/* Mobile Card Layout */}
+              <div className="md:hidden space-y-4">
+                {templates?.map((template) => (
+                  <Card key={template.id} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={template.isActive}
+                            onCheckedChange={() => handleToggleStatus(template.id)}
+                            disabled={toggleStatusMutation.isPending}
+                          />
+                          <span className={`text-sm font-medium ${template.isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                            {template.isActive ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm text-gray-600 dark:text-gray-300">
+                        <div className="max-w-full truncate">{template.objective}</div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Created:</span>
+                          <div className="text-gray-700 dark:text-gray-300">{formatDate(template.createdAt)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 dark:text-gray-400">Last Run:</span>
+                          <div className="text-gray-700 dark:text-gray-300">{formatDate(template.lastExecutedAt)}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Schedule:</span>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {template.frequency} at {formatTime(template.time, template.timezone)}
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRunTemplate(template.id)}
+                          disabled={executeTemplateMutation.isPending || !template.isActive}
+                          className={`flex items-center space-x-1 ${
+                            template.isActive 
+                              ? "hover:bg-green-50 hover:border-green-300 hover:text-green-700" 
+                              : "opacity-50 cursor-not-allowed"
+                          }`}
+                        >
+                          {executeTemplateMutation.isPending ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Play className="w-3 h-3" />
+                          )}
+                          <span>Run</span>
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditTemplate(template.id)}
+                          className="flex items-center space-x-1 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                        >
+                          <Edit className="w-3 h-3" />
+                          <span>Edit</span>
+                        </Button>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center space-x-1 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete</span>
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{template.name}"? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteTemplate(template.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                                disabled={deleteTemplateMutation.isPending}
+                              >
+                                {deleteTemplateMutation.isPending ? (
+                                  <div className="flex items-center space-x-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Deleting...</span>
+                                  </div>
+                                ) : (
+                                  "Delete Template"
+                                )}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

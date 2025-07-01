@@ -105,13 +105,13 @@ export default function ContentGenerated() {
   }
 
   return (
-    <div className="px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Content Generated</h1>
+    <div className="page-content">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Content Generated</h1>
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Side - Editable Form */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-semibold mb-6 text-gray-900">Edit Parameters</h2>
+          <div className="modern-card p-6">
+            <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Edit Parameters</h2>
             <Form {...form}>
               <div className="space-y-4">
                 <FormField
@@ -173,34 +173,34 @@ export default function ContentGenerated() {
           </div>
 
           {/* Right Side - Generated Results */}
-          <div className="bg-gray-50 rounded-xl p-6">
-            <h2 className="text-xl font-semibold mb-6 text-gray-900">Generated Results</h2>
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
+            <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Generated Results</h2>
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
-                <div className="bg-white p-3 rounded-lg border text-sm text-gray-800">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Subject</label>
+                <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-800 dark:text-gray-200">
                   {post.subject}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Post Title</label>
-                <div className="bg-white p-3 rounded-lg border text-sm text-gray-800">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Post Title</label>
+                <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-800 dark:text-gray-200">
                   {generatedContent.title}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Post Body</label>
-                <div className="bg-white p-3 rounded-lg border text-sm text-gray-800">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Post Body</label>
+                <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-800 dark:text-gray-200">
                   {generatedContent.body}
                 </div>
               </div>
               {generatedContent.imageUrl && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Post Image</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Post Image</label>
                   <img 
                     src={generatedContent.imageUrl} 
                     alt="Generated content" 
-                    className="w-24 h-24 rounded-lg border object-cover"
+                    className="w-24 h-24 rounded-lg border border-gray-200 dark:border-gray-600 object-cover"
                   />
                 </div>
               )}

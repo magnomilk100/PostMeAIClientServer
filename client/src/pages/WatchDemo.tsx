@@ -56,9 +56,9 @@ export default function WatchDemo() {
   const [selectedVideo, setSelectedVideo] = useState<typeof demoVideos[0] | null>(null);
 
   return (
-    <div className="px-8 py-8">
+    <div className="page-content">
       {/* Header */}
-      <div className="max-w-6xl mx-auto">
+      <div>
         <div className="flex items-center mb-8">
           <Button
             variant="ghost"
@@ -71,8 +71,8 @@ export default function WatchDemo() {
         </div>
 
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Watch PostMeAI Demos</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Watch PostMeAI Demos</h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Learn how to master AI-powered social media content creation with our comprehensive video tutorials. 
             From basic setup to advanced strategies, these demos will help you get the most out of PostMeAI.
           </p>
@@ -133,9 +133,9 @@ export default function WatchDemo() {
 
         {/* Additional Information */}
         <div className="mt-16 text-center">
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Need More Help?</h2>
-            <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-8">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Need More Help?</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
               Can't find what you're looking for? Check out our comprehensive documentation 
               or get in touch with our support team for personalized assistance.
             </p>

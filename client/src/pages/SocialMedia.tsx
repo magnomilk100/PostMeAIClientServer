@@ -245,20 +245,20 @@ export default function SocialMedia() {
   };
 
   return (
-    <div className="px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">{t('socialMedia.title')}</h1>
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-sm p-8">
+    <div className="page-content">
+      <h1 className="text-3xl font-bold text-standard mb-8">{t('socialMedia.title')}</h1>
+      <div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8">
           <div className="mb-8">
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
               {t('socialMedia.subtitle')}
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
               <div className="flex items-start space-x-2">
-                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-blue-900 mb-1">{t('socialMedia.explanation.title')}</h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-1">{t('socialMedia.explanation.title')}</h4>
+                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                     {[0, 1, 2, 3, 4].map((index) => (
                       <li key={index}>• {t(`socialMedia.explanation.items.${index}`)}</li>
                     ))}
@@ -284,7 +284,7 @@ export default function SocialMedia() {
               const error = getTestError(platform.id);
               
               return (
-                <div key={platform.id} className="border rounded-lg p-4 space-y-4">
+                <div key={platform.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
                   <div className="flex items-center space-x-4">
                     {/* Checkbox */}
                     <Checkbox
@@ -299,8 +299,8 @@ export default function SocialMedia() {
                         {IconComponent && <IconComponent className="w-5 h-5 text-white" />}
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{platform.name}</h3>
-                        <p className="text-sm text-gray-500">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{platform.name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           {selectedPlatforms[platform.id] ? t('socialMedia.enabled') : t('socialMedia.disabled')}
                         </p>
                       </div>
@@ -360,25 +360,25 @@ export default function SocialMedia() {
                       {/* Connection Status */}
                       <div className="flex items-center space-x-2">
                         {status === 'testing' && (
-                          <div className="flex items-center space-x-2 text-blue-600">
+                          <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400">
                             <AlertCircle className="w-4 h-4 animate-spin" />
                             <span className="text-sm">{t('socialMedia.testingConnection')}</span>
                           </div>
                         )}
                         {status === 'connected' && (
-                          <div className="flex items-center space-x-2 text-green-600">
+                          <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
                             <CheckCircle className="w-4 h-4" />
                             <span className="text-sm font-medium">{t('socialMedia.connected')}</span>
                           </div>
                         )}
                         {status === 'failed' && (
-                          <div className="flex items-center space-x-2 text-red-600">
+                          <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
                             <XCircle className="w-4 h-4" />
                             <span className="text-sm font-medium">{t('socialMedia.failed')}</span>
                           </div>
                         )}
                         {status === 'idle' && currentApiKeys[platform.id] && (
-                          <div className="flex items-center space-x-2 text-gray-500">
+                          <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
                             <AlertCircle className="w-4 h-4" />
                             <span className="text-sm">{t('socialMedia.readyToTest')}</span>
                           </div>
@@ -387,8 +387,8 @@ export default function SocialMedia() {
 
                       {/* Error Log */}
                       {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                          <p className="text-sm text-red-700">
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
+                          <p className="text-sm text-red-700 dark:text-red-300">
                             <strong>Error:</strong> {error}
                           </p>
                         </div>
@@ -402,7 +402,7 @@ export default function SocialMedia() {
 
           {/* Save Button */}
           <div className="mt-8 flex justify-between items-center">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               {t('socialMedia.platformsCount', { count: Object.values(selectedPlatforms).filter(Boolean).length })}
             </div>
             <Button 
@@ -422,9 +422,9 @@ export default function SocialMedia() {
           </div>
 
           {/* Help Section */}
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-semibold text-blue-900 mb-2">Need help finding your API keys?</h4>
-            <div className="text-sm text-blue-800 space-y-1">
+          <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">Need help finding your API keys?</h4>
+            <div className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
               <p>• <strong>Facebook:</strong> Visit Facebook Developers → Your App → Settings → Basic</p>
               <p>• <strong>Instagram:</strong> Use Facebook Graph API with Instagram Basic Display</p>
               <p>• <strong>LinkedIn:</strong> LinkedIn Developer Program → Your App → Auth</p>

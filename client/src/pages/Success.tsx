@@ -145,46 +145,46 @@ export default function Success() {
   const isManualPost = publishedPost?.isManualPost;
 
   return (
-    <div className="px-8 py-8">
+    <div className="page-content">
       <div className="max-w-4xl mx-auto text-center">
         {/* Success Animation - Different for AI vs Manual Posts */}
         <div className="mb-8">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i className="fas fa-check text-3xl text-green-600"></i>
+          <div className="w-20 h-20 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i className="fas fa-check text-3xl text-green-600 dark:text-green-400"></i>
           </div>
           {isManualPost ? (
             <>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Successfully Published!</h1>
-              <p className="text-gray-600">Your content has been published across selected platforms.</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Successfully Published!</h1>
+              <p className="text-gray-600 dark:text-gray-300">Your content has been published across selected platforms.</p>
             </>
           ) : (
             <>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Content Generated Successfully!</h1>
-              <p className="text-gray-600">Your AI-generated content is ready. You can schedule it or publish immediately.</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Content Generated Successfully!</h1>
+              <p className="text-gray-600 dark:text-gray-300">Your AI-generated content is ready. You can schedule it or publish immediately.</p>
             </>
           )}
         </div>
 
         {/* Published Content Summary - Only show for Manual Posts */}
         {generatedContent && isManualPost && (
-          <div className="bg-white rounded-xl shadow-sm p-8 mb-8">
-            <h2 className="text-xl font-semibold mb-6 text-gray-900">Published Content Summary</h2>
+          <div className="modern-card p-8 mb-8">
+            <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Published Content Summary</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="text-left">
-                <h3 className="font-semibold mb-2">Title</h3>
-                <p className="text-gray-700 mb-4">{generatedContent.title}</p>
-                <h3 className="font-semibold mb-2">Content</h3>
-                <p className="text-gray-700 text-sm">{generatedContent.body}</p>
+                <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Title</h3>
+                <p className="text-gray-700 dark:text-gray-300 mb-4">{generatedContent.title}</p>
+                <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Content</h3>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">{generatedContent.body}</p>
               </div>
               <div className="text-left">
-                <h3 className="font-semibold mb-2">Published Platforms</h3>
+                <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Published Platforms</h3>
                 <div className="flex flex-wrap gap-2">
                   {getSelectedPlatforms().map((platform: any) => {
                     const IconComponent = getSocialMediaIcon(platform.id);
                     return (
                       <span 
                         key={platform.id}
-                        className="flex items-center bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium"
+                        className="flex items-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-xs font-medium"
                       >
                         <div className={`w-4 h-4 rounded-full ${platform.bgColor} flex items-center justify-center mr-2`}>
                           <IconComponent className="w-2.5 h-2.5 text-white" />
@@ -229,8 +229,8 @@ export default function Success() {
 
         {/* Schedule Template Section - Only show for AI posts, not manual posts */}
         {!isManualPost && (
-          <div className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-xl p-8">
-          <h2 className="text-xl font-semibold mb-6 text-gray-900">Schedule this Template for Automated Publishing</h2>
+          <div className="bg-gradient-to-br from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 rounded-xl p-8">
+          <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">Schedule this Template for Automated Publishing</h2>
           <div className="max-w-2xl mx-auto">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -257,8 +257,8 @@ export default function Success() {
                 />
 
                 {/* Conditional Important Message */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">
+                <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     <strong>Important:</strong>{" "}
                     {form.watch("executionMode") === "review" 
                       ? "You opted for Review, means that the post will be schedule but will not be posted unless you approve it. Post waiting for review will be under page, \"Pendent Posts to be Reviewed\"."

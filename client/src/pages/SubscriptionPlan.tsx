@@ -149,23 +149,23 @@ export default function SubscriptionPlan() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8">
+    <div className="page-content space-y-8">
       {/* Header */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-gray-900 flex items-center justify-center">
-          <Rocket className="w-10 h-10 mr-3 text-purple-600" />
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white flex items-center justify-center">
+          <Rocket className="w-10 h-10 mr-3 text-purple-600 dark:text-purple-400" />
           {t('subscription.title')}
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
           {t('subscription.subtitle')}
         </p>
       </div>
 
       {/* Current Plan Status */}
       {currentPlan !== "none" && isActivePlan && (
-        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700">
           <CardHeader>
-            <CardTitle className="flex items-center text-green-700">
+            <CardTitle className="flex items-center text-green-700 dark:text-green-300">
               <Check className="w-6 h-6 mr-2" />
               {t('subscription.currentPlan')}: {user?.subscriptionPlan}
             </CardTitle>
@@ -173,11 +173,11 @@ export default function SubscriptionPlan() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-600">
+                <p className="text-green-600 dark:text-green-400">
                   Status: <span className="font-semibold capitalize">{user?.subscriptionStatus}</span>
                 </p>
                 {user?.subscriptionExpiresAt && (
-                  <p className="text-gray-600 text-sm">
+                  <p className="text-gray-600 dark:text-gray-300 text-sm">
                     Expires: {new Date(user.subscriptionExpiresAt).toLocaleDateString()}
                   </p>
                 )}
@@ -204,23 +204,23 @@ export default function SubscriptionPlan() {
 
       {/* Cancelled Plan Notice */}
       {currentPlan !== "none" && isCancelledPlan && (
-        <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
+        <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-700">
           <CardHeader>
-            <CardTitle className="flex items-center text-orange-700">
+            <CardTitle className="flex items-center text-orange-700 dark:text-orange-300">
               <AlertCircle className="w-6 h-6 mr-2" />
               Subscription Cancelled
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <p className="text-orange-600">
+              <p className="text-orange-600 dark:text-orange-400">
                 Your <strong>{user?.subscriptionPlan}</strong> plan has been cancelled but remains active until {user?.subscriptionExpiresAt ? new Date(user.subscriptionExpiresAt).toLocaleDateString() : 'the end of your billing period'}.
               </p>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
                 After the expiration date, no further payments will be charged and you can upgrade to a new plan anytime.
               </p>
-              <div className="bg-orange-100 border-l-4 border-orange-400 p-3 rounded">
-                <p className="text-orange-800 text-sm font-medium">
+              <div className="bg-orange-100 dark:bg-orange-900/30 border-l-4 border-orange-400 dark:border-orange-500 p-3 rounded">
+                <p className="text-orange-800 dark:text-orange-200 text-sm font-medium">
                   You'll keep access to all premium features until {user?.subscriptionExpiresAt ? new Date(user.subscriptionExpiresAt).toLocaleDateString() : 'expiration'}.
                 </p>
               </div>
@@ -259,22 +259,22 @@ export default function SubscriptionPlan() {
               
               <CardHeader className="text-center space-y-4">
                 <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${
-                  plan.color === 'purple' ? 'bg-purple-100 text-purple-600' :
-                  plan.color === 'gold' ? 'bg-yellow-100 text-yellow-600' :
-                  'bg-blue-100 text-blue-600'
+                  plan.color === 'purple' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                  plan.color === 'gold' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                  'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                 }`}>
                   <Icon className="w-8 h-8" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl">{t(`subscription.plans.${plan.name.toLowerCase()}.name`)}</CardTitle>
-                  <CardDescription className="text-gray-600">{t(`subscription.plans.${plan.name.toLowerCase()}.description`)}</CardDescription>
+                  <CardTitle className="text-2xl text-gray-900 dark:text-white">{t(`subscription.plans.${plan.name.toLowerCase()}.name`)}</CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">{t(`subscription.plans.${plan.name.toLowerCase()}.description`)}</CardDescription>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-4xl font-bold text-gray-900">
+                  <div className="text-4xl font-bold text-gray-900 dark:text-white">
                     ${plan.price}
-                    <span className="text-lg font-normal text-gray-600">/{t(`subscription.${plan.period}`)}</span>
+                    <span className="text-lg font-normal text-gray-600 dark:text-gray-300">/{t(`subscription.${plan.period}`)}</span>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
                     Billed monthly • Cancel anytime
                   </div>
                 </div>
@@ -284,8 +284,8 @@ export default function SubscriptionPlan() {
                 <ul className="space-y-3">
                   {plan.features.map((feature, index) => (
                     <li key={index} className="flex items-start space-x-3">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">{feature}</span>
+                      <Check className="w-5 h-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700 dark:text-gray-300">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -319,10 +319,10 @@ export default function SubscriptionPlan() {
       </div>
 
       {/* Credit vs Subscription Comparison */}
-      <Card className="bg-gray-50">
+      <Card className="bg-gray-50 dark:bg-gray-800">
         <CardHeader>
-          <CardTitle className="text-center">Credits vs. Subscription</CardTitle>
-          <CardDescription className="text-center">
+          <CardTitle className="text-center text-gray-900 dark:text-white">Credits vs. Subscription</CardTitle>
+          <CardDescription className="text-center text-gray-600 dark:text-gray-300">
             Choose the billing model that works best for you
           </CardDescription>
         </CardHeader>
@@ -330,15 +330,15 @@ export default function SubscriptionPlan() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">Pay-per-Use Credits</h3>
-                  <p className="text-gray-600">Perfect for occasional users</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Pay-per-Use Credits</h3>
+                  <p className="text-gray-600 dark:text-gray-300">Perfect for occasional users</p>
                 </div>
               </div>
-              <ul className="space-y-2 text-sm text-gray-700">
+              <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                 <li>• No monthly commitment</li>
                 <li>• Pay only for what you use</li>
                 <li>• Credits never expire</li>
@@ -348,15 +348,15 @@ export default function SubscriptionPlan() {
 
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <Star className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <Star className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">Monthly Subscription</h3>
-                  <p className="text-gray-600">Best value for regular users</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Monthly Subscription</h3>
+                  <p className="text-gray-600 dark:text-gray-300">Best value for regular users</p>
                 </div>
               </div>
-              <ul className="space-y-2 text-sm text-gray-700">
+              <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                 <li>• Unlimited usage (Pro & Enterprise)</li>
                 <li>• Significant cost savings</li>
                 <li>• Premium features included</li>
@@ -370,25 +370,25 @@ export default function SubscriptionPlan() {
       {/* FAQ Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-center">Frequently Asked Questions</CardTitle>
+          <CardTitle className="text-center text-gray-900 dark:text-white">Frequently Asked Questions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">Can I switch plans anytime?</h4>
-              <p className="text-gray-600 text-sm">Yes! You can upgrade, downgrade, or cancel your subscription at any time. Changes take effect at your next billing cycle.</p>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Can I switch plans anytime?</h4>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">Yes! You can upgrade, downgrade, or cancel your subscription at any time. Changes take effect at your next billing cycle.</p>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">What happens to unused credits?</h4>
-              <p className="text-gray-600 text-sm">Credits never expire and remain in your account. If you switch to a subscription, you can still use your remaining credits.</p>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">What happens to unused credits?</h4>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">Credits never expire and remain in your account. If you switch to a subscription, you can still use your remaining credits.</p>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">Do you offer refunds?</h4>
-              <p className="text-gray-600 text-sm">We offer a 30-day money-back guarantee for all subscription plans. Credit purchases are non-refundable.</p>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Do you offer refunds?</h4>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">We offer a 30-day money-back guarantee for all subscription plans. Credit purchases are non-refundable.</p>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">Is there a free trial?</h4>
-              <p className="text-gray-600 text-sm">New users receive 100 free credits to try our platform. You can also start with our Basic plan and upgrade anytime.</p>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Is there a free trial?</h4>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">New users receive 100 free credits to try our platform. You can also start with our Basic plan and upgrade anytime.</p>
             </div>
           </div>
         </CardContent>

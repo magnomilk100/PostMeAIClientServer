@@ -136,43 +136,43 @@ export default function PendentPosts() {
   };
 
   return (
-    <div className="px-8 py-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="page-content">
+      <div>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('pendentPosts.title')}</h1>
-          <p className="text-gray-600">{t('pendentPosts.subtitle')}</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t('pendentPosts.title')}</h1>
+          <p className="text-gray-600 dark:text-gray-300">{t('pendentPosts.subtitle')}</p>
         </div>
 
         {posts.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
-              <Check className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">{t('pendentPosts.noPosts.title')}</h3>
-              <p className="text-gray-600">{t('pendentPosts.noPosts.description')}</p>
+              <Check className="w-16 h-16 text-green-500 dark:text-green-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{t('pendentPosts.noPosts.title')}</h3>
+              <p className="text-gray-600 dark:text-gray-300">{t('pendentPosts.noPosts.description')}</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-6">
             {posts.map((post) => (
               <Card key={post.id} className="overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg mb-2">{post.title}</CardTitle>
-                      <CardDescription className="flex items-center space-x-4 text-sm">
+                      <CardTitle className="text-lg mb-2 text-gray-900 dark:text-white">{post.title}</CardTitle>
+                      <CardDescription className="flex items-center space-x-4 text-sm dark:text-gray-300">
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4" />
                           <span>{formatDate(post.scheduledDate)} at {post.scheduledTime}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <Clock className="w-4 h-4" />
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">
                             {post.executionMode === "review" ? t('pendentPosts.reviewMode') : t('pendentPosts.autoMode')}
                           </Badge>
                         </div>
                       </CardDescription>
                     </div>
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                    <Badge variant="secondary" className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
                       {t('pendentPosts.pendingReview')}
                     </Badge>
                   </div>
@@ -180,33 +180,33 @@ export default function PendentPosts() {
                 <CardContent className="p-6">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">{t('pendentPosts.contentPreview')}</h4>
-                      <p className="text-gray-700 text-sm leading-relaxed bg-gray-50 p-3 rounded-lg">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('pendentPosts.contentPreview')}</h4>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
                         {post.content}
                       </p>
                     </div>
 
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">{t('pendentPosts.publishingPlatforms')}</h4>
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('pendentPosts.publishingPlatforms')}</h4>
                       <div className="flex items-center space-x-2">
                         {post.platforms.map((platformId) => {
                           const PlatformIcon = getPlatformIcon(platformId);
                           return (
                             <div 
                               key={platformId}
-                              className="flex items-center space-x-1 bg-white px-2 py-1 rounded-md border text-xs"
+                              className="flex items-center space-x-1 bg-white dark:bg-gray-800 px-2 py-1 rounded-md border text-xs dark:border-gray-600"
                               style={{ borderColor: platformColors[platformId] }}
                             >
                               <PlatformIcon style={{ fontSize: '12px', color: platformColors[platformId] }} />
-                              <span className="capitalize">{platformId}</span>
+                              <span className="capitalize text-gray-900 dark:text-white">{platformId}</span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <div className="text-xs text-gray-500">
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         {t('pendentPosts.template')} {post.templateName}
                       </div>
                       <div className="flex items-center space-x-2">
@@ -230,11 +230,11 @@ export default function PendentPosts() {
                             </DialogHeader>
                             <div className="space-y-4">
                               <div>
-                                <label className="text-sm font-medium">{t('pendentPosts.editDialog.titleLabel')}</label>
-                                <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{selectedPost?.title}</p>
+                                <label className="text-sm font-medium text-gray-900 dark:text-white">{t('pendentPosts.editDialog.titleLabel')}</label>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-2 rounded">{selectedPost?.title}</p>
                               </div>
                               <div>
-                                <label className="text-sm font-medium">{t('pendentPosts.editDialog.contentLabel')}</label>
+                                <label className="text-sm font-medium text-gray-900 dark:text-white">{t('pendentPosts.editDialog.contentLabel')}</label>
                                 <Textarea
                                   value={editedContent}
                                   onChange={(e) => setEditedContent(e.target.value)}
@@ -258,7 +258,7 @@ export default function PendentPosts() {
                           variant="outline" 
                           size="sm"
                           onClick={() => handleReject(post.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                         >
                           <X className="w-4 h-4 mr-1" />
                           {t('pendentPosts.buttons.reject')}

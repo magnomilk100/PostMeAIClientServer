@@ -318,14 +318,14 @@ export default function Images() {
   };
 
   return (
-    <div className="px-8 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Images</h1>
-        <div className="flex items-center space-x-3">
+    <div className="page-content">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 md:mb-8 gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-standard">Images</h1>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
           {!isMoveMode ? (
             <>
               <div className="flex items-center space-x-2">
-                <Label htmlFor="upload-folder" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="upload-folder" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Upload to:
                 </Label>
                 <Select value={uploadFolder} onValueChange={setUploadFolder}>
@@ -366,7 +366,7 @@ export default function Images() {
           ) : (
             <>
               <div className="flex items-center space-x-2">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
                   {selectedImages.length} image(s) selected
                 </Badge>
               </div>
@@ -399,54 +399,54 @@ export default function Images() {
       {/* Explanation Section */}
       <div className="mb-8">
         <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="explanation" className="bg-gradient-to-r from-green-50 to-teal-50 border-green-200 rounded-lg px-4">
-            <AccordionTrigger className="text-green-700 hover:no-underline">
+          <AccordionItem value="explanation" className="bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 border-green-200 dark:border-green-700 rounded-lg px-4">
+            <AccordionTrigger className="text-green-700 dark:text-green-300 hover:no-underline">
               <div className="flex items-center">
                 <HelpCircle className="w-5 h-5 mr-2" />
                 What are Images in PostMeAI?
               </div>
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pb-4">
-              <p className="text-gray-700 leading-relaxed">
+              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
                 Images are the visual foundation of your social media content. Our image library serves as your centralized media repository, 
                 helping you organize, manage, and quickly access all your visual assets for creating engaging posts.
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <Camera className="w-5 h-5 text-green-600" />
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <Camera className="w-5 h-5 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Visual Content</h4>
-                    <p className="text-sm text-gray-600">Photos, graphics, logos, and branded visuals for your posts</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-white">Visual Content</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Photos, graphics, logos, and branded visuals for your posts</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                    <Layers className="w-5 h-5 text-teal-600" />
+                  <div className="w-10 h-10 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center">
+                    <Layers className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Organization</h4>
-                    <p className="text-sm text-gray-600">Organize assets by folders: marketing, products, team, templates</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-white">Organization</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Organize assets by folders: marketing, products, team, templates</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Palette className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                    <Palette className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Brand Assets</h4>
-                    <p className="text-sm text-gray-600">Store logos, brand colors, and template designs for consistency</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-white">Brand Assets</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Store logos, brand colors, and template designs for consistency</p>
                   </div>
                 </div>
               </div>
               
-              <div className="bg-white p-4 rounded-lg border border-green-200 mt-4">
-                <h4 className="font-semibold text-gray-900 mb-2">Why We Have Images in PostMeAI?</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
+              <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-green-200 dark:border-green-700 mt-4">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Why We Have Images in PostMeAI?</h4>
+                <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
                   <li>• <strong>Quick Access:</strong> Instantly find and use images when creating posts or templates</li>
                   <li>• <strong>Brand Consistency:</strong> Maintain visual identity across all social media platforms</li>
                   <li>• <strong>Efficiency:</strong> Upload once, use everywhere - no need to re-upload for each post</li>
@@ -470,9 +470,9 @@ export default function Images() {
       />
 
       {/* Folder Filter */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <div className="flex items-center space-x-4">
-          <Label htmlFor="folder-filter" className="font-medium">Filter by folder:</Label>
+          <Label htmlFor="folder-filter" className="font-medium text-gray-900 dark:text-white">Filter by folder:</Label>
           <Select value={selectedFolder} onValueChange={setSelectedFolder}>
             <SelectTrigger className="w-48">
               <SelectValue />
@@ -507,9 +507,9 @@ export default function Images() {
             <span>Failed to load images. Please try again.</span>
           </div>
         ) : filteredImages.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4 lg:gap-6 p-4 md:p-6">
             {filteredImages.map((image) => (
-              <div key={image.id} className={`group relative bg-gray-50 rounded-lg overflow-hidden border hover:shadow-md transition-shadow ${isMoveMode && selectedImages.includes(image.id) ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}>
+              <div key={image.id} className={`group relative bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow ${isMoveMode && selectedImages.includes(image.id) ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30' : ''}`}>
                 <div className="aspect-square relative">
                   {isMoveMode && (
                     <div className="absolute top-2 left-2 z-10">
@@ -549,18 +549,18 @@ export default function Images() {
                   )}
                 </div>
                 <div className="p-3">
-                  <h3 className="font-medium text-sm truncate" title={image.originalName}>
+                  <h3 className="font-medium text-sm truncate text-gray-900 dark:text-white" title={image.originalName}>
                     {image.originalName}
                   </h3>
-                  <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                  <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <span>{formatFileSize(image.fileSize)}</span>
                     <span>{image.mimeType}</span>
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <Badge variant="outline" className="text-xs capitalize">
+                    <Badge variant="outline" className="text-xs capitalize dark:border-gray-600 dark:text-gray-300">
                       {image.folder || 'uncategorized'}
                     </Badge>
-                    <span className="text-xs text-gray-500">{new Date(image.createdAt).toLocaleDateString()}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(image.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -568,11 +568,11 @@ export default function Images() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-4">
+            <ImageIcon className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
               {selectedFolder === "all" ? "No images uploaded yet" : `No images in ${selectedFolder} folder`}
             </p>
-            <Button onClick={handleUpload} variant="outline">
+            <Button onClick={handleUpload} variant="outline" className="dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
               <Upload className="w-4 h-4 mr-2" />
               Upload Your First Image
             </Button>

@@ -146,7 +146,7 @@ export default function PaymentForm({ amount, credits, onSuccess }: PaymentFormP
       <CardContent className="space-y-6">
         {/* Payment Gateway Selection */}
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-gray-700">Select Payment Method</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Select Payment Method</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {paymentGateways.map((gateway) => (
               <div
@@ -154,15 +154,15 @@ export default function PaymentForm({ amount, credits, onSuccess }: PaymentFormP
                 onClick={() => setSelectedGateway(gateway.id)}
                 className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                   selectedGateway === gateway.id
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 dark:border-purple-400"
+                    : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 }`}
               >
                 <div className="flex items-center space-x-3">
                   <span className="text-2xl">{gateway.icon}</span>
                   <div>
-                    <div className="font-medium">{gateway.name}</div>
-                    <div className="text-sm text-gray-500">{gateway.description}</div>
+                    <div className="font-medium text-gray-900 dark:text-white">{gateway.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{gateway.description}</div>
                   </div>
                   {selectedGateway === gateway.id && (
                     <Badge variant="default" className="ml-auto">Selected</Badge>
@@ -177,7 +177,7 @@ export default function PaymentForm({ amount, credits, onSuccess }: PaymentFormP
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Card Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-700 flex items-center">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
                 <Lock className="w-4 h-4 mr-2" />
                 Card Details
               </h3>

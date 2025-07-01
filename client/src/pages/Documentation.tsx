@@ -7,10 +7,10 @@ import { useTranslation } from "react-i18next";
 export default function Documentation() {
   const { t } = useTranslation();
   return (
-    <div className="px-8 py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">{t('documentation.title')}</h1>
-        <p className="text-xl text-gray-600 mb-12">{t('documentation.subtitle')}</p>
+    <div className="page-content">
+      <div>
+        <h1 className="text-4xl font-bold text-standard mb-4">{t('documentation.title')}</h1>
+        <p className="text-xl text-gray-600 dark:text-gray-300 mb-12">{t('documentation.subtitle')}</p>
 
         {/* Overview */}
         <Card className="mb-8">
@@ -26,25 +26,25 @@ export default function Documentation() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Bot className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Bot className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="font-semibold mb-2">{t('documentation.overview.aiContent.title')}</h3>
-                <p className="text-sm text-gray-600">{t('documentation.overview.aiContent.description')}</p>
+                <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">{t('documentation.overview.aiContent.title')}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('documentation.overview.aiContent.description')}</p>
               </div>
               <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Share2 className="w-6 h-6 text-green-600" />
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Share2 className="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
-                <h3 className="font-semibold mb-2">{t('documentation.overview.multiPlatform.title')}</h3>
-                <p className="text-sm text-gray-600">{t('documentation.overview.multiPlatform.description')}</p>
+                <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">{t('documentation.overview.multiPlatform.title')}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('documentation.overview.multiPlatform.description')}</p>
               </div>
               <div className="text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Calendar className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Calendar className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="font-semibold mb-2">{t('documentation.overview.scheduling.title')}</h3>
-                <p className="text-sm text-gray-600">{t('documentation.overview.scheduling.description')}</p>
+                <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">{t('documentation.overview.scheduling.title')}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('documentation.overview.scheduling.description')}</p>
               </div>
             </div>
           </CardContent>
@@ -69,11 +69,11 @@ export default function Documentation() {
                 { name: "Discord", color: "indigo", descriptionKey: "discord" },
                 { name: "Telegram", color: "blue", descriptionKey: "telegram" }
               ].map((platform) => (
-                <div key={platform.name} className="p-3 border rounded-lg text-center">
-                  <Badge variant="outline" className={`mb-2 text-${platform.color}-600 border-${platform.color}-200`}>
+                <div key={platform.name} className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg text-center">
+                  <Badge variant="outline" className={`mb-2 text-${platform.color}-600 dark:text-${platform.color}-400 border-${platform.color}-200 dark:border-${platform.color}-700`}>
                     {platform.name}
                   </Badge>
-                  <p className="text-xs text-gray-600">{t(`documentation.platforms.${platform.descriptionKey}`)}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">{t(`documentation.platforms.${platform.descriptionKey}`)}</p>
                 </div>
               ))}
             </div>
@@ -92,16 +92,16 @@ export default function Documentation() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h4 className="font-semibold mb-2">{t('documentation.aiPost.features')}</h4>
-                <ul className="space-y-1 text-sm text-gray-600">
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">{t('documentation.aiPost.features')}</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
                     <li key={index}>• {t(`documentation.aiPost.featuresList.${index}`)}</li>
                   ))}
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold mb-2">{t('documentation.aiPost.workflow')}</h4>
-                <ol className="space-y-1 text-sm text-gray-600">
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">{t('documentation.aiPost.workflow')}</h4>
+                <ol className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   {[0, 1, 2, 3, 4].map((index) => (
                     <li key={index}>{index + 1}. {t(`documentation.aiPost.workflowList.${index}`)}</li>
                   ))}
@@ -120,16 +120,16 @@ export default function Documentation() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h4 className="font-semibold mb-2">{t('documentation.manualPost.features')}</h4>
-                <ul className="space-y-1 text-sm text-gray-600">
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">{t('documentation.manualPost.features')}</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   {[0, 1, 2, 3, 4, 5].map((index) => (
                     <li key={index}>• {t(`documentation.manualPost.featuresList.${index}`)}</li>
                   ))}
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold mb-2">{t('documentation.manualPost.imageManagement')}</h4>
-                <ul className="space-y-1 text-sm text-gray-600">
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">{t('documentation.manualPost.imageManagement')}</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   {[0, 1, 2, 3].map((index) => (
                     <li key={index}>• {t(`documentation.manualPost.imageList.${index}`)}</li>
                   ))}
@@ -148,8 +148,8 @@ export default function Documentation() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h4 className="font-semibold mb-2">Features:</h4>
-                <ul className="space-y-1 text-sm text-gray-600">
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">Features:</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   <li>• Save post configurations as reusable templates</li>
                   <li>• Automated scheduling (daily, weekly, monthly)</li>
                   <li>• Template execution and management</li>
@@ -158,11 +158,11 @@ export default function Documentation() {
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold mb-2">Scheduling Options:</h4>
-                <ul className="space-y-1 text-sm text-gray-600">
-                  <li>• <Badge variant="outline" className="text-xs">Daily</Badge> - Post every day at specified time</li>
-                  <li>• <Badge variant="outline" className="text-xs">Weekly</Badge> - Post once per week</li>
-                  <li>• <Badge variant="outline" className="text-xs">Monthly</Badge> - Post once per month</li>
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">Scheduling Options:</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                  <li>• <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">Daily</Badge> - Post every day at specified time</li>
+                  <li>• <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">Weekly</Badge> - Post once per week</li>
+                  <li>• <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">Monthly</Badge> - Post once per month</li>
                   <li>• Timezone support for accurate scheduling</li>
                 </ul>
               </div>
@@ -179,8 +179,8 @@ export default function Documentation() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h4 className="font-semibold mb-2">API Configuration:</h4>
-                <ul className="space-y-1 text-sm text-gray-600">
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">API Configuration:</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   <li>• Secure API key management</li>
                   <li>• Platform-specific connection setup</li>
                   <li>• Connection status monitoring</li>
@@ -188,8 +188,8 @@ export default function Documentation() {
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold mb-2">Setup Requirements:</h4>
-                <ul className="space-y-1 text-sm text-gray-600">
+                <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">Setup Requirements:</h4>
+                <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
                   <li>• Facebook: Facebook Developers App</li>
                   <li>• Instagram: Facebook Graph API</li>
                   <li>• LinkedIn: LinkedIn Developer Program</li>
@@ -217,8 +217,8 @@ export default function Documentation() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-semibold mb-3">Organization Features:</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
+                <h4 className="font-semibold mb-3 text-gray-900 dark:text-white">Organization Features:</h4>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <span>Folder-based organization system</span>
@@ -238,8 +238,8 @@ export default function Documentation() {
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold mb-3">Management Actions:</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
+                <h4 className="font-semibold mb-3 text-gray-900 dark:text-white">Management Actions:</h4>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                     <span>Upload multiple images simultaneously</span>
@@ -275,29 +275,29 @@ export default function Documentation() {
               <div className="flex items-start space-x-4">
                 <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-semibold">1</div>
                 <div>
-                  <h4 className="font-semibold mb-1">Configure Social Media Accounts</h4>
-                  <p className="text-sm text-gray-600">Navigate to Social Media page and add your API keys for each platform you want to use.</p>
+                  <h4 className="font-semibold mb-1 text-gray-900 dark:text-white">Configure Social Media Accounts</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Navigate to Social Media page and add your API keys for each platform you want to use.</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4">
                 <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-semibold">2</div>
                 <div>
-                  <h4 className="font-semibold mb-1">Upload Images (Optional)</h4>
-                  <p className="text-sm text-gray-600">Go to Images page to upload and organize your visual content in folders.</p>
+                  <h4 className="font-semibold mb-1 text-gray-900 dark:text-white">Upload Images (Optional)</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Go to Images page to upload and organize your visual content in folders.</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4">
                 <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-semibold">3</div>
                 <div>
-                  <h4 className="font-semibold mb-1">Create Your First Post</h4>
-                  <p className="text-sm text-gray-600">Choose between AI-powered or manual post creation from the Post page.</p>
+                  <h4 className="font-semibold mb-1 text-gray-900 dark:text-white">Create Your First Post</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Choose between AI-powered or manual post creation from the Post page.</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4">
                 <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-semibold">4</div>
                 <div>
-                  <h4 className="font-semibold mb-1">Review and Customize</h4>
-                  <p className="text-sm text-gray-600">Review generated content and customize it for each platform before publishing.</p>
+                  <h4 className="font-semibold mb-1 text-gray-900 dark:text-white">Review and Customize</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Review generated content and customize it for each platform before publishing.</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4">

@@ -59,22 +59,22 @@ export default function Billing() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
+    <div className="page-content space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-            <Wallet className="w-8 h-8 mr-3 text-purple-600" />
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
+            <Wallet className="w-8 h-8 mr-3 text-purple-600 dark:text-purple-400" />
             {t('billing.title')}
           </h1>
-          <p className="text-gray-600 mt-1">{t('billing.subtitle')}</p>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">{t('billing.subtitle')}</p>
         </div>
       </div>
 
       {/* Current Balance */}
-      <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+      <Card className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-purple-200 dark:border-purple-700">
         <CardHeader>
-          <CardTitle className="flex items-center text-purple-700">
+          <CardTitle className="flex items-center text-purple-700 dark:text-purple-300">
             <DollarSign className="w-6 h-6 mr-2" />
             {t('billing.currentBalance')}
           </CardTitle>
@@ -82,10 +82,10 @@ export default function Billing() {
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-4xl font-bold text-purple-700">
+              <div className="text-4xl font-bold text-purple-700 dark:text-purple-300">
                 {user?.subscriptionStatus === 'active' ? t('billing.unlimited') : `${user?.credits || 0} ${t('billing.credits')}`}
               </div>
-              <p className="text-gray-600 mt-1">
+              <p className="text-gray-600 dark:text-gray-300 mt-1">
                 {user?.subscriptionStatus === 'active' 
                   ? `${user.subscriptionPlan} Subscription Active`
                   : 'Pay-per-use credits'}
@@ -135,7 +135,7 @@ export default function Billing() {
                     max="1000"
                   />
                 </div>
-                <div className="text-2xl font-bold text-purple-600">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   ${(parseInt(creditAmount || "0") * 0.2).toFixed(2)}
                 </div>
                 <Button 
@@ -149,7 +149,7 @@ export default function Billing() {
                   Purchase
                 </Button>
               </div>
-              <p className="text-sm text-gray-500">$0.20 per credit</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">$0.20 per credit</p>
             </CardContent>
           </Card>
 
@@ -163,9 +163,9 @@ export default function Billing() {
                   </Badge>
                 )}
                 <CardHeader className="text-center">
-                  <CardTitle className="text-2xl">{t('billing.creditPackages.credits', { credits: pkg.credits })}</CardTitle>
-                  <div className="text-3xl font-bold text-purple-600">${pkg.price}</div>
-                  <CardDescription>${(pkg.price / pkg.credits).toFixed(3)} per credit</CardDescription>
+                  <CardTitle className="text-2xl dark:text-white">{t('billing.creditPackages.credits', { credits: pkg.credits })}</CardTitle>
+                  <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">${pkg.price}</div>
+                  <CardDescription className="dark:text-gray-400">${(pkg.price / pkg.credits).toFixed(3)} per credit</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button 
@@ -188,16 +188,16 @@ export default function Billing() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">5 Credits</div>
-                  <p className="text-gray-600">AI Post Generation</p>
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">5 Credits</div>
+                  <p className="text-gray-600 dark:text-gray-300">AI Post Generation</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">3 Credits</div>
-                  <p className="text-gray-600">Image Generation</p>
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">3 Credits</div>
+                  <p className="text-gray-600 dark:text-gray-300">Image Generation</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">1 Credit</div>
-                  <p className="text-gray-600">Post Scheduling</p>
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">1 Credit</div>
+                  <p className="text-gray-600 dark:text-gray-300">Post Scheduling</p>
                 </div>
               </div>
             </CardContent>
@@ -218,25 +218,25 @@ export default function Billing() {
               <div className="space-y-4">
                 {transactions.length > 0 ? (
                   transactions.map((transaction: PaymentTransaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                       <div className="flex items-center space-x-4">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          transaction.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
+                          transaction.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'
                         }`}>
                           <CreditCard className="w-5 h-5" />
                         </div>
                         <div>
-                          <div className="font-medium">Credit Purchase - {transaction.gateway.toUpperCase()}</div>
-                          <div className="text-sm text-gray-500">
+                          <div className="font-medium text-gray-900 dark:text-white">Credit Purchase - {transaction.gateway.toUpperCase()}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
                             {new Date(transaction.createdAt!).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-bold text-green-600">
+                        <div className="font-bold text-green-600 dark:text-green-400">
                           +{transaction.credits} Credits
                         </div>
-                        <div className="text-sm text-gray-500">${transaction.amount}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">${transaction.amount}</div>
                         <Badge variant={transaction.status === 'completed' ? 'default' : transaction.status === 'failed' ? 'destructive' : 'secondary'}>
                           {transaction.status}
                         </Badge>
@@ -244,8 +244,8 @@ export default function Billing() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
                     <p>No transactions yet</p>
                     <p className="text-sm">Purchase credits to see your transaction history here</p>
                   </div>

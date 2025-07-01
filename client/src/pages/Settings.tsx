@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { theme, setTheme } = useTheme();
   
   // Profile settings state
   const [profileData, setProfileData] = useState({
@@ -66,7 +68,7 @@ export default function Settings() {
         marketingEmails: user.marketingEmails ?? false
       });
       setThemeSettings({
-        theme: user.theme || "light",
+        theme: theme,
         primaryColor: user.primaryColor || "purple",
         compactMode: user.compactMode ?? false,
         sidebarCollapsed: user.sidebarCollapsed ?? false
@@ -312,7 +314,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="page-content">
       <div className="flex items-center mb-8">
         <SettingsIcon className="w-8 h-8 mr-3 text-purple-600" />
         <h1 className="text-3xl font-bold text-gray-900">{t('settings.title')}</h1>
@@ -600,14 +602,17 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div>
                 <Label htmlFor="theme">Theme</Label>
-                <Select value={themeSettings.theme} onValueChange={(value) => setThemeSettings({...themeSettings, theme: value})}>
+                <Select value={theme} onValueChange={(value) => {
+                  setTheme(value as 'light' | 'dark' | 'auto');
+                  setThemeSettings({...themeSettings, theme: value});
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="auto">Auto (System)</SelectItem>
+                    <SelectItem value="light">{t('settings.theme.themes.light')}</SelectItem>
+                    <SelectItem value="dark">{t('settings.theme.themes.dark')}</SelectItem>
+                    <SelectItem value="auto">{t('settings.theme.themes.auto')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

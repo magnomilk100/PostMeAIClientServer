@@ -132,15 +132,15 @@ export default function AIPost() {
   }
 
   return (
-    <div className="px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">
+    <div className="page-content">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
         {isTemplateMode ? "AI Automated Post – Template Creation" : 
          isEditMode ? "Edit Template" : 
          "AI Automated Post"}
       </h1>
       <div className="max-w-4xl mx-auto">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="bg-white rounded-xl shadow-sm p-8 space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="modern-card p-8 space-y-6">
             {/* Subject Field */}
             <FormField
               control={form.control}
@@ -160,7 +160,7 @@ export default function AIPost() {
                       }}
                     />
                   </FormControl>
-                  <div className={`text-xs mt-1 ${charCount > 350 ? 'text-red-500' : 'text-gray-500'}`}>
+                  <div className={`text-xs mt-1 ${charCount > 350 ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {charCount}/400 characters
                   </div>
                   <FormMessage />
