@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,7 +15,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { SUPPORTED_LANGUAGES } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
 import { ComponentLoading } from "@/components/ui/loading";
 import { Loader2, Sparkles } from "lucide-react";
 
@@ -50,6 +49,7 @@ export default function AIPost() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const subjectInputRef = useRef<HTMLTextAreaElement>(null);
   
   // Check URL parameters for mode
   const urlParams = new URLSearchParams(window.location.search);
@@ -71,6 +71,19 @@ export default function AIPost() {
       }, 1000);
     }
   }, [isAuthenticated, isLoading, toast, setLocation]);
+
+  // Focus and select subject field when component mounts and user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && subjectInputRef.current) {
+      // Small delay to ensure the component is fully rendered
+      setTimeout(() => {
+        if (subjectInputRef.current) {
+          subjectInputRef.current.focus();
+          subjectInputRef.current.select();
+        }
+      }, 100);
+    }
+  }, [isAuthenticated, isLoading]);
   const [charCount, setCharCount] = useState(35);
 
   const form = useForm<AIPostForm>({
@@ -151,6 +164,7 @@ export default function AIPost() {
                   <FormControl>
                     <Textarea
                       {...field}
+                      ref={subjectInputRef}
                       rows={4}
                       maxLength={400}
                       className="resize-none"

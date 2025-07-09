@@ -6,6 +6,7 @@ import { PaymentGatewayFactory, type PaymentData, validateCardNumber, validateCV
 import { z } from "zod";
 import { setupAuth, requireAuth, optionalAuth } from "./auth";
 import passport from "passport";
+import multer from "multer";				
 
 const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
@@ -248,6 +249,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Image Generation endpoint (protected, mocked)
+  app.post("/api/ai/generate-image", requireAuth, async (req, res) => {
+    try {
+      const { prompt, size = "1024x1024", quality = "standard" } = req.body;
+      const user = req.user as any;
+      
+      if (!prompt || prompt.trim().length === 0) {
+        return res.status(400).json({ message: "Prompt is required" });
+      }
+
+      // Simulate AI processing delay (2-4 seconds)
+      await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+
+      // Generate a mock image using a placeholder service
+      const mockImageUrl = `https://picsum.photos/1024/1024?random=${Date.now()}`;
+      
+      try {
+        // Download the mock image and convert to base64
+        const response = await fetch(mockImageUrl);
+        const buffer = await response.arrayBuffer();
+        const base64Data = Buffer.from(buffer).toString('base64');
+        
+        // Create image record in database
+        const imageData = {
+          userId: user.id,
+          filename: `ai-generated-${Date.now()}.jpg`,
+          originalName: `AI: ${prompt.substring(0, 30)}${prompt.length > 30 ? '...' : ''}`,
+          mimeType: 'image/jpeg',
+          fileSize: buffer.byteLength,
+          folder: null, // Save to uncategorized (null folder)
+          binaryData: base64Data
+        };
+
+        const savedImage = await storage.createImage(imageData);
+        
+        res.json(savedImage);
+      } catch (imageError) {
+        console.error('Image fetch error:', imageError);
+        res.status(500).json({ message: "Failed to generate AI image" });
+      }
+    } catch (error) {
+      console.error('AI Image Generation Error:', error);
+      res.status(500).json({ message: "Failed to generate AI image", error: error.message });
+    }
+  });
   // Create a new post (protected)
   app.post("/api/posts", requireAuth, async (req, res) => {
     try {
@@ -699,17 +745,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/images', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const imageData = insertImageSchema.parse({
-        ...req.body,
-        userId
-      });
+      //const imageData = insertImageSchema.parse({
+      //  ...req.body,
+      //  userId
+     // });
       
-      const image = await storage.createImage(imageData);
-      res.json(image);
+      // Handle both JSON and FormData uploads
+      if (req.is('multipart/form-data')) {
+        // For file uploads via FormData
+        const upload = multer({ storage: multer.memoryStorage() });
+        
+        upload.single('image')(req, res, async (err: any) => {
+          if (err) {
+            console.error('Multer error:', err);
+            return res.status(400).json({ message: 'File upload error' });
+          }
+          
+          if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+          }
+          
+          const file = req.file;
+          const folder = req.body.folder || null;
+          
+          // Convert buffer to base64
+          const base64Data = file.buffer.toString('base64');
+          
+          const imageData = {
+            userId,
+            filename: `upload-${Date.now()}-${file.originalname}`,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            fileSize: file.size,
+            folder: folder === 'uncategorized' ? null : folder,
+            binaryData: base64Data
+          };
+          
+          const image = await storage.createImage(imageData);
+          res.json(image);
+        });
+      } else {
+        // For direct JSON uploads (like AI-generated images)
+        const imageData = insertImageSchema.parse({
+          ...req.body,
+          userId
+        });
+        
+        const image = await storage.createImage(imageData);
+        res.json(image);
+      }
     } catch (error: any) {
       console.error('Error creating image:', error);
       res.status(500).json({ message: 'Failed to upload image' });
-    }
+    }											  
   });
 
   app.get('/api/images/:id', requireAuth, async (req: any, res) => {

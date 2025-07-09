@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { apiRequest } from "@/lib/queryClient";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { SUPPORTED_LANGUAGES, SOCIAL_PLATFORMS } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { ComponentLoading } from "@/components/ui/loading";
-import { Upload, X, Eye, Image as ImageIcon, Loader2, Send, Brain, Edit, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, X, Eye, Image as ImageIcon, Loader2, Send, Brain, Edit, Sparkles, ChevronDown, ChevronUp, Plus, Wand2, Download } from "lucide-react";
 import { 
   SiFacebook, 
   SiInstagram, 
@@ -92,6 +94,11 @@ export default function ManualPost() {
   const [useAI, setUseAI] = useState(false);
   const [aiGeneratedContent, setAiGeneratedContent] = useState<{title?: string, content?: string}>({});
   const [isAISectionCollapsed, setIsAISectionCollapsed] = useState(false);
+  const [activeImageTab, setActiveImageTab] = useState<"library" | "upload" | "ai">("library");
+  const [showAIImageDialog, setShowAIImageDialog] = useState(false);
+  const [aiImagePrompt, setAiImagePrompt] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   
   const MAX_IMAGES = 5;
 
@@ -135,6 +142,18 @@ export default function ManualPost() {
       }, 1000);
     }
   }, [isAuthenticated, isLoading, toast, setLocation]);
+
+  // Focus title field when component mounts and user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && titleInputRef.current) {
+      // Small delay to ensure the component is fully rendered
+      setTimeout(() => {
+        if (titleInputRef.current) {
+          titleInputRef.current.focus();
+        }
+      }, 100);
+    }
+  }, [isAuthenticated, isLoading]);
 
   const form = useForm<ManualPostForm>({
     resolver: zodResolver(manualPostSchema),
@@ -183,6 +202,68 @@ export default function ManualPost() {
       toast({
         title: "AI Generation Failed",
         description: "Unable to generate AI content. Please try again or create manually.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Image Upload Mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch('/api/images', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Image Uploaded",
+        description: "Your image has been uploaded successfully and added to uncategorized folder.",
+      });
+      // Add the uploaded image to selected images
+      setSelectedImages(prev => [...prev, data]);
+      // Refresh images query
+      queryClient.invalidateQueries({ queryKey: ['/api/images'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Upload Failed",
+        description: "Unable to upload image. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // AI Image Generation Mutation (mocked)
+  const generateAIImageMutation = useMutation({
+    mutationFn: async (prompt: string) => {
+      const response = await apiRequest("POST", "/api/ai/generate-image", {
+        prompt,
+        size: "1024x1024",
+        quality: "standard"
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "AI Image Generated",
+        description: "Your AI-generated image has been created and added to your library.",
+      });
+      // Add the generated image to selected images
+      setSelectedImages(prev => [...prev, data]);
+      // Refresh images query
+      queryClient.invalidateQueries({ queryKey: ['/api/images'] });
+      setShowAIImageDialog(false);
+      setAiImagePrompt("");
+    },
+    onError: (error) => {
+      toast({
+        title: "AI Image Generation Failed",
+        description: "Unable to generate AI image. Please try again.",
         variant: "destructive",
       });
     },
@@ -307,6 +388,79 @@ export default function ManualPost() {
     }
     
     generateAIContentMutation.mutate(subject);
+  };
+
+  // Handle file upload
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please select an image file (JPG, PNG, GIF, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if we've reached the maximum limit
+    if (selectedImages.length >= MAX_IMAGES) {
+      toast({
+        title: "Maximum Images Reached",
+        description: `You can only select up to ${MAX_IMAGES} images per post.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('folder', 'uncategorized'); // Always save to uncategorized
+    
+    uploadImageMutation.mutate(formData);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Handle AI image generation
+  const handleGenerateAIImage = () => {
+    if (!aiImagePrompt.trim()) {
+      toast({
+        title: "Prompt Required",
+        description: "Please enter a description for the AI image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if we've reached the maximum limit
+    if (selectedImages.length >= MAX_IMAGES) {
+      toast({
+        title: "Maximum Images Reached",
+        description: `You can only select up to ${MAX_IMAGES} images per post.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    generateAIImageMutation.mutate(aiImagePrompt);
   };
 
   // Show loading state while checking authentication
@@ -446,6 +600,7 @@ export default function ManualPost() {
                   <FormControl>
                     <Input
                       {...field}
+                      ref={titleInputRef}
                       maxLength={200}
                       placeholder={useAI ? "AI will generate your title here..." : "Enter your post title..."}
                       className={aiGeneratedContent.title ? "bg-purple-50/50 border-purple-200" : ""}
@@ -582,7 +737,7 @@ export default function ManualPost() {
                   )}
                 </div>
 
-                {/* Image Selection Button */}
+                {/* Image Management Tabs */}
                 <Button
                   type="button"
                   variant="outline"
@@ -590,146 +745,200 @@ export default function ManualPost() {
                   className="w-full"
                 >
                   <ImageIcon className="w-4 h-4 mr-2" />
-                  {showImageSelector ? "Hide" : "Select"} Images from Library
+                  {showImageSelector ? "Hide" : "Manage"} Images
                 </Button>
 
-                {/* Image Library */}
+                {/* Enhanced Image Management with Tabs */}
                 {showImageSelector && (
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Available Images by Folder</h4>
-                    
-                    {/* Loading State */}
-                    {(imagesLoading || foldersLoading) && (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="flex items-center space-x-2 text-gray-600">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Loading your images...</span>
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Image Management</h4>
+                      <Badge variant="secondary" className="text-xs">
+                        {selectedImages.length}/{MAX_IMAGES} selected
+                      </Badge>
+                    </div>
 
-                    {/* No Images State */}
-                    {!imagesLoading && !foldersLoading && images.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                        <p className="mb-2">No images in your library yet</p>
-                        <p className="text-sm">Upload images on the Images page to see them here</p>
-                      </div>
-                    )}
-                    
-                    {/* Folder Browsing */}
-                    {!imagesLoading && !foldersLoading && images.length > 0 && (
-                      <div className="space-y-3">
-                      {availableFolders.map((folderName) => {
-                        const folderImages = getImagesForFolder(folderName);
-                        const isExpanded = selectedFolder === folderName;
-                        
-                        return (
-                          <div key={folderName} className="border border-gray-200 rounded-lg bg-white">
-                            {/* Folder Header */}
-                            <div 
-                              className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                              onClick={() => handleFolderSelect(folderName)}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <ImageIcon className="w-4 h-4 text-blue-600" />
-                                </div>
-                                <div>
-                                  <h5 className="font-medium text-gray-900 capitalize">{folderName}</h5>
-                                  <p className="text-sm text-gray-500">{folderImages.length} image{folderImages.length !== 1 ? 's' : ''}</p>
-                                </div>
+                    <Tabs value={activeImageTab} onValueChange={(value) => setActiveImageTab(value as "library" | "upload" | "ai")}>
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="library" className="flex items-center gap-2">
+                          <Eye className="w-4 h-4" />
+                          Library
+                        </TabsTrigger>
+                        <TabsTrigger value="upload" className="flex items-center gap-2">
+                          <Upload className="w-4 h-4" />
+                          Upload
+                        </TabsTrigger>
+                        <TabsTrigger value="ai" className="flex items-center gap-2">
+                          <Wand2 className="w-4 h-4" />
+                          AI Generate
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Library Tab */}
+                      <TabsContent value="library" className="mt-4">
+                        <div className="space-y-3">
+                          {/* Loading State */}
+                          {(imagesLoading || foldersLoading) && (
+                            <div className="flex items-center justify-center py-8">
+                              <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Loading your images...</span>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                {/* Show selected images count for this folder */}
-                                {selectedImages.filter((img: DBImage) => {
-                                  const imgFolder = img.folder || 'uncategorized';
-                                  return imgFolder === folderName;
-                                }).length > 0 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {selectedImages.filter((img: DBImage) => {
-                                      const imgFolder = img.folder || 'uncategorized';
-                                      return imgFolder === folderName;
-                                    }).length} selected
-                                  </Badge>
+                            </div>
+                          )}
+
+                          {/* No Images State */}
+                          {!imagesLoading && !foldersLoading && images.length === 0 && (
+                            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                              <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                              <p className="mb-2">No images in your library yet</p>
+                              <p className="text-sm">Upload images using the Upload tab or generate them with AI</p>
+                            </div>
+                          )}
+                          
+                          {/* Simple image grid when we have images */}
+                          {!imagesLoading && !foldersLoading && images.length > 0 && (
+                            <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                              {images.map((image) => {
+                                const isSelected = selectedImages.find(img => img.id === image.id);
+                                const isDisabled = !isSelected && selectedImages.length >= MAX_IMAGES;
+                                
+                                return (
+                                  <div
+                                    key={image.id}
+                                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                                      isSelected 
+                                        ? "border-primary shadow-md" 
+                                        : isDisabled 
+                                          ? "border-gray-200 dark:border-gray-600 opacity-50 cursor-not-allowed"
+                                          : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                                    }`}
+                                    onClick={() => !isDisabled && handleImageSelect(image)}
+                                  >
+                                    <img
+                                      src={`data:${image.mimeType};base64,${image.binaryData}`}
+                                      alt={image.originalName}
+                                      className="w-full h-16 object-cover"
+                                    />
+                                    {isSelected && (
+                                      <div className="absolute inset-0 bg-primary bg-opacity-20 flex items-center justify-center">
+                                        <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                                          <Eye className="w-3 h-3 text-white" />
+                                        </div>
+                                      </div>
+                                    )}
+                                    {isDisabled && !isSelected && (
+                                      <div className="absolute inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center">
+                                        <div className="text-white text-xs font-medium">Max</div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      {/* Upload Tab */}
+                      <TabsContent value="upload" className="mt-4">
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+                              <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                              <h5 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Upload New Image</h5>
+                              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                                Select an image file to upload. It will be added to your uncategorized folder and automatically selected for this post.
+                              </p>
+                              <div className="flex flex-col items-center space-y-2">
+                                <Button
+                                  type="button"
+                                  onClick={() => fileInputRef.current?.click()}
+                                  disabled={uploadImageMutation.isPending || selectedImages.length >= MAX_IMAGES}
+                                  className="flex items-center gap-2"
+                                >
+                                  {uploadImageMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Uploading...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-4 h-4" />
+                                      Choose File
+                                    </>
+                                  )}
+                                </Button>
+                                {selectedImages.length >= MAX_IMAGES && (
+                                  <p className="text-xs text-red-600 dark:text-red-400">
+                                    Maximum {MAX_IMAGES} images reached
+                                  </p>
                                 )}
-                                {isExpanded ? (
-                                  <ChevronUp className="w-4 h-4 text-gray-400" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                              </div>
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileUpload}
+                                className="hidden"
+                              />
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                            Supported formats: JPG, PNG, GIF • Maximum size: 5MB
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* AI Generate Tab */}
+                      <TabsContent value="ai" className="mt-4">
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <div className="border-2 border-dashed border-purple-300 dark:border-purple-600 rounded-lg p-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
+                              <Wand2 className="w-12 h-12 mx-auto mb-4 text-purple-500" />
+                              <h5 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Generate AI Image</h5>
+                              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                                Describe the image you want to create, and AI will generate it for you.
+                              </p>
+                              <div className="space-y-3">
+                                <Textarea
+                                  placeholder="Describe the image you want to generate... (e.g., 'A futuristic city skyline at sunset with flying cars')"
+                                  value={aiImagePrompt}
+                                  onChange={(e) => setAiImagePrompt(e.target.value)}
+                                  className="min-h-20 text-sm"
+                                />
+                                <Button
+                                  type="button"
+                                  onClick={handleGenerateAIImage}
+                                  disabled={generateAIImageMutation.isPending || selectedImages.length >= MAX_IMAGES || !aiImagePrompt.trim()}
+                                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                                >
+                                  {generateAIImageMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                      Generating AI Image...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles className="w-4 h-4 mr-2" />
+                                      Generate Image
+                                    </>
+                                  )}
+                                </Button>
+                                {selectedImages.length >= MAX_IMAGES && (
+                                  <p className="text-xs text-red-600 dark:text-red-400">
+                                    Maximum {MAX_IMAGES} images reached
+                                  </p>
                                 )}
                               </div>
                             </div>
-                            
-                            {/* Folder Images (Expandable) */}
-                            {isExpanded && (
-                              <div className="px-3 pb-3 border-t border-gray-100 dark:border-gray-700">
-                                <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mt-3">
-                                  {folderImages.map((image) => {
-                                    const isSelected = selectedImages.find(img => img.id === image.id);
-                                    const isDisabled = !isSelected && selectedImages.length >= MAX_IMAGES;
-                                    
-                                    return (
-                                      <div
-                                        key={image.id}
-                                        className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                                          isSelected 
-                                            ? "border-primary shadow-md" 
-                                            : isDisabled 
-                                              ? "border-gray-200 dark:border-gray-600 opacity-50 cursor-not-allowed"
-                                              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
-                                        }`}
-                                        onClick={() => !isDisabled && handleImageSelect(image)}
-                                      >
-                                        <img
-                                          src={`data:${image.mimeType};base64,${image.binaryData}`}
-                                          alt={image.originalName}
-                                          className="w-full h-16 object-cover"
-                                        />
-                                        {isSelected && (
-                                          <div className="absolute inset-0 bg-primary bg-opacity-20 flex items-center justify-center">
-                                            <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                                              <Eye className="w-3 h-3 text-white" />
-                                            </div>
-                                          </div>
-                                        )}
-                                        {isDisabled && !isSelected && (
-                                          <div className="absolute inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center">
-                                            <div className="text-white text-xs font-medium">Max</div>
-                                          </div>
-                                        )}
-                                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-1">
-                                          <div className="truncate">{image.originalName}</div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
                           </div>
-                        );
-                      })}
-                      </div>
-                    )}
-                    
-                    {/* Tips section - show regardless of loading state */}
-                    {!imagesLoading && !foldersLoading && (
-                      <div className="mt-4 text-xs text-gray-600 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <div className="w-4 h-4 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 dark:text-blue-300 text-xs">i</span>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                            AI-generated images will be automatically added to your library and selected for this post
+                          </div>
                         </div>
-                        <span className="font-medium text-gray-700 dark:text-gray-200">Image Selection Tips:</span>
-                      </div>
-                      <ul className="ml-6 space-y-1">
-                        <li>• Click folder names to expand and browse images</li>
-                        <li>• You can select up to {MAX_IMAGES} images maximum</li>
-                        <li>• Click images to select/deselect them</li>
-                        <li>• Selected images will appear above</li>
-                      </ul>
-                      </div>
-                    )}
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 )}
               </div>
