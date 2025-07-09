@@ -8,17 +8,13 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
-import dotenv from "dotenv";
-import { pool } from "./db";           // ← import the same pool
 
-dotenv.config();
 export function setupAuth(app: Express) {
   // Session configuration
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
-    //conString: process.env.DATABASE_URL,
-    pool,
+    conString: process.env.DATABASE_URL,
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
@@ -32,7 +28,6 @@ export function setupAuth(app: Express) {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",          // or "none" if you need cross-site cookies, added CHATGPT
       maxAge: sessionTtl,
     },
   }));
@@ -59,18 +54,13 @@ export function setupAuth(app: Express) {
     usernameField: "email",
     passwordField: "password"
   }, async (email, password, done) => {
-    console.log("[Auth] LocalStrategy invoked for:", email);
     try {
       const user = await storage.authenticateUser(email, password);
-      console.log("[Auth] storage.authenticateUser returned:", user);
       if (!user) {
-        console.log("[Auth] Authentication failed for:", email);
         return done(null, false, { message: "Invalid email or password" });
       }
-      console.log("[Auth] Authentication success for:", email);
       return done(null, user);
     } catch (error) {
-      console.error("[Auth] Error in LocalStrategy:", error);
       return done(error);
     }
   }));
@@ -104,10 +94,13 @@ export function setupAuth(app: Express) {
 
   // Google strategy
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    passport.use(new GoogleStrategy({
+    console.log('Google OAuth configured with Client ID:', process.env.GOOGLE_CLIENT_ID);
+    console.log('Callback URL:', process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/google/callback" : "http://localhost:5000/auth/google/callback");
+    
+    passport.use(new GoogleStrategy({  ///"http://localhost:5000/auth/google/callback"
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback"
+      callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/google/callback" : "http://localhost:5000/auth/google/callback"
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         const userId = `google_${profile.id}`;

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index, decimal, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -99,6 +99,7 @@ export const templates = pgTable("templates", {
   frequency: text("frequency").notNull(), // daily, weekly, monthly
   time: text("time").notNull(),
   timezone: text("timezone").notNull(),
+  targetPlatforms: text("target_platforms").array(), // Array of platform IDs																 
   isActive: boolean("is_active").notNull().default(true),
   lastExecutedAt: timestamp("last_executed_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -172,6 +173,36 @@ export const socialMediaConfigs = pgTable("social_media_configs", {
   lastTestedAt: timestamp("last_tested_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserPlatform: unique().on(table.userId, table.platformId),
+}));
+
+export const postSchedules = pgTable("post_schedules", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: varchar("name").notNull(),
+  description: text("description"), // optional description field
+  creationMode: varchar("creation_mode").notNull().default("ai"), // ai, manual
+  selectedPlatforms: text("selected_platforms").array().notNull(), // ["linkedin", "instagram"]
+  platformConfigs: jsonb("platform_configs").notNull(), // platform-specific settings
+  scheduleType: varchar("schedule_type").notNull(), // daily, weekly, monthly, calendar
+  scheduleConfig: jsonb("schedule_config").notNull(), // schedule configuration
+  links: jsonb("links"), // website, link1, link2
+  isActive: boolean("is_active").default(true),
+  lastExecutedAt: timestamp("last_executed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const scheduleExecutions = pgTable("schedule_executions", {
+  id: serial("id").primaryKey(),
+  scheduleId: integer("schedule_id").notNull().references(() => postSchedules.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  executedAt: timestamp("executed_at").notNull().defaultNow(),
+  status: varchar("status").notNull().default("success"), // success, failed, running
+  message: text("message"),
+  platformsExecuted: text("platforms_executed").array(),
+  executionDuration: integer("execution_duration"), // in milliseconds
 });
 
 // Authentication schemas
@@ -272,6 +303,16 @@ export const insertSocialMediaConfigSchema = createInsertSchema(socialMediaConfi
   updatedAt: true,
 });
 
+export const insertPostScheduleSchema = createInsertSchema(postSchedules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertScheduleExecutionSchema = createInsertSchema(scheduleExecutions).omit({
+  id: true,
+  executedAt: true,
+});
 export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type InsertSavedPaymentMethod = z.infer<typeof insertSavedPaymentMethodSchema>;
@@ -282,3 +323,7 @@ export type InsertImage = z.infer<typeof insertImageSchema>;
 export type Image = typeof images.$inferSelect;
 export type InsertSocialMediaConfig = z.infer<typeof insertSocialMediaConfigSchema>;
 export type SocialMediaConfig = typeof socialMediaConfigs.$inferSelect;
+export type InsertPostSchedule = z.infer<typeof insertPostScheduleSchema>;
+export type PostSchedule = typeof postSchedules.$inferSelect;
+export type InsertScheduleExecution = z.infer<typeof insertScheduleExecutionSchema>;
+export type ScheduleExecution = typeof scheduleExecutions.$inferSelect;

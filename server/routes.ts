@@ -6,7 +6,7 @@ import { PaymentGatewayFactory, type PaymentData, validateCardNumber, validateCV
 import { z } from "zod";
 import { setupAuth, requireAuth, optionalAuth } from "./auth";
 import passport from "passport";
-import multer from "multer";				
+import multer from "multer";
 
 const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
@@ -81,12 +81,45 @@ function generateAIContent(subject: string, language: string = "en") {
     content = content.replace("What's your take on this?", "Quel est votre avis sur cela?");
   }
   
+  // Generate relevant hashtags based on subject
+  let hashtags: string[] = [];
+  
+  if (subjectLower.includes("business") || subjectLower.includes("company") || subjectLower.includes("startup")) {
+    hashtags = ["business", "entrepreneurship", "innovation", "success", "growth"];
+  } else if (subjectLower.includes("tech") || subjectLower.includes("technology") || subjectLower.includes("AI") || subjectLower.includes("software")) {
+    hashtags = ["technology", "innovation", "AI", "digital", "future"];
+  } else if (subjectLower.includes("social") || subjectLower.includes("community") || subjectLower.includes("people")) {
+    hashtags = ["community", "social", "networking", "collaboration", "teamwork"];
+  } else if (subjectLower.includes("product") || subjectLower.includes("launch") || subjectLower.includes("announcement")) {
+    hashtags = ["product", "launch", "announcement", "innovation", "exciting"];
+  } else if (subjectLower.includes("marketing") || subjectLower.includes("brand")) {
+    hashtags = ["marketing", "branding", "digital", "content", "strategy"];
+  } else if (subjectLower.includes("education") || subjectLower.includes("learning") || subjectLower.includes("training")) {
+    hashtags = ["education", "learning", "training", "knowledge", "development"];
+  } else if (subjectLower.includes("health") || subjectLower.includes("wellness") || subjectLower.includes("fitness")) {
+    hashtags = ["health", "wellness", "fitness", "lifestyle", "mindfulness"];
+  } else {
+    // Default hashtags for general content
+    hashtags = ["inspiration", "motivation", "success", "growth", "mindset"];
+  }
+
   return {
     title: title,
-    content: content
+    content: content,
+    hashtags: hashtags
   };
 }
 
+function generateMockImageBase64(description: string): string {
+  // Generate a simple colored rectangle as a placeholder image
+  // In production, this would be replaced with actual AI image generation
+  
+  // Create a minimal PNG image in base64 (1x1 pixel purple square)
+  // This is a valid PNG file that can be displayed in browsers
+  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+  
+  return pngBase64;
+}
 function generateMockContent(subject: string, platform?: string) {
   const baseTitle = "🚀 Unlock Your Creative Potential Today!";
   const baseBody = "Turn your wildest ideas into viral content that captivates your audience. Whether you're sharing insights, telling stories, or showcasing your expertise, every post is an opportunity to connect and inspire. What's your next big idea? 💡✨";
@@ -742,6 +775,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dedicated upload route for file uploads
+  app.post('/api/images/upload', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const upload = multer({ storage: multer.memoryStorage() });
+      
+      upload.single('image')(req, res, async (err: any) => {
+        if (err) {
+          console.error('Multer error:', err);
+          return res.status(400).json({ message: 'File upload error' });
+        }
+        
+        if (!req.file) {
+          return res.status(400).json({ message: 'No file uploaded' });
+        }
+        
+        const file = req.file;
+        const folder = req.body.folder || null;
+        const originalName = req.body.originalName || file.originalname;
+        
+        // Convert buffer to base64
+        const base64Data = file.buffer.toString('base64');
+        
+        const imageData = {
+          userId,
+          filename: `upload-${Date.now()}-${originalName}`,
+          originalName: originalName,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          folder: folder === 'uncategorized' ? null : folder,
+          binaryData: base64Data
+        };
+        
+        const image = await storage.createImage(imageData);
+        res.json(image);
+      });
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      res.status(500).json({ message: 'Failed to upload image' });
+    }
+  });
   app.post('/api/images', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -788,7 +862,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // For direct JSON uploads (like AI-generated images)
         const imageData = insertImageSchema.parse({
           ...req.body,
-          userId
+          userId,
+          originalName: req.body.originalName || req.body.filename || 'ai-generated-image.png'																		  
         });
         
         const image = await storage.createImage(imageData);
@@ -797,7 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error creating image:', error);
       res.status(500).json({ message: 'Failed to upload image' });
-    }											  
+    }
   });
 
   app.get('/api/images/:id', requireAuth, async (req: any, res) => {
@@ -853,6 +928,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Image Generation endpoint
+  app.post('/api/ai/generate-image', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { description } = req.body;
+
+      if (!description || typeof description !== 'string') {
+        return res.status(400).json({ message: "Image description is required" });
+      }
+
+      // Simulate AI image generation delay
+      await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
+
+      // Generate a mock image based on the description
+      // In production, this would interface with DALL-E, Midjourney, or Stable Diffusion
+      // Create a minimal PNG image in base64 (1x1 pixel purple square)
+      const mockImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+      
+      const filename = `ai-generated-${Date.now()}.png`;
+      const imageData: InsertImage = {
+        userId,
+        filename,
+        originalName: filename,
+        mimeType: 'image/png',
+        fileSize: Math.floor(Math.random() * 200000) + 50000, // Random size between 50KB-250KB
+        folder: null, // Save as uncategorized
+        binaryData: mockImageBase64
+      };
+
+      const image = await storage.createImage(imageData);
+      res.json(image);
+
+    } catch (error: any) {
+      console.error("AI image generation error:", error);
+      res.status(500).json({ 
+        message: "Failed to generate image", 
+        error: error.message 
+      });
+    }
+  });
   // Social Media Configuration routes
   app.get('/api/social-media-configs', requireAuth, async (req: any, res) => {
     try {
@@ -912,34 +1027,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Simulate API testing with realistic delay
       await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
 
-      // Mock different test results based on platform for demonstration
-      const mockTestResults: Record<string, { success: boolean; error?: string }> = {
-        facebook: { success: true },
-        instagram: { success: true },
-        linkedin: { success: true },
-        tiktok: { success: false, error: 'Invalid API credentials' },
-        youtube: { success: true },
-        discord: { success: false, error: 'Token has expired' },
-        telegram: { success: true },
-      };
+      // Always return success for fake testing - regardless of API key value
+      // Save the API key AND set status to connected
+      await storage.upsertSocialMediaConfig({
+        userId,
+        platformId,
+        isEnabled: true,
+        apiKey: apiKey.trim(),
+        testStatus: 'connected',
+        testError: null,
+        lastTestedAt: new Date(),
+      });
+      
+      res.json({ 
+        success: true, 
+        status: 'connected',
+        message: `Successfully connected to ${platformId.charAt(0).toUpperCase() + platformId.slice(1)}`
+      });
 
-      const testResult = mockTestResults[platformId] || { success: true };
-
-      if (testResult.success) {
-        await storage.updateSocialMediaConfigTestStatus(userId, platformId, 'connected');
-        res.json({ 
-          success: true, 
-          status: 'connected',
-          message: `Successfully connected to ${platformId.charAt(0).toUpperCase() + platformId.slice(1)}`
-        });
-      } else {
-        await storage.updateSocialMediaConfigTestStatus(userId, platformId, 'failed', testResult.error);
-        res.json({ 
-          success: false, 
-          status: 'failed',
-          error: testResult.error || 'Connection test failed'
-        });
-      }
     } catch (error: any) {
       console.error(`Error testing ${req.params.platformId} connection:`, error);
       await storage.updateSocialMediaConfigTestStatus(req.user.id, req.params.platformId, 'failed', 'Internal server error');
@@ -1388,6 +1493,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Post Schedule Routes
+  app.get("/api/post-schedules", requireAuth, async (req: any, res) => {
+    try {
+      const schedules = await storage.getPostSchedulesByUserId(req.user.id);
+      
+      // Add execution statistics to each schedule
+      const schedulesWithStats = await Promise.all(schedules.map(async (schedule: any) => {
+        const executions = await storage.getScheduleExecutionsByScheduleId(schedule.id, req.user.id);
+        const totalExecutions = executions.length;
+        const successfulExecutions = executions.filter((ex: any) => ex.status === 'success').length;
+        
+        return {
+          ...schedule,
+          totalExecutions,
+          successfulExecutions
+        };
+      }));
+      
+      res.json(schedulesWithStats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch post schedules" });
+    }
+  });
+
+  app.post("/api/post-schedules", requireAuth, async (req: any, res) => {
+    try {
+      const scheduleData = {
+        ...req.body,
+        userId: req.user.id,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const schedule = await storage.createPostSchedule(scheduleData);
+      res.json(schedule);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create post schedule" });
+    }
+  });
+
+  app.get("/api/post-schedules/:id", requireAuth, async (req: any, res) => {
+    try {
+      const schedule = await storage.getPostScheduleById(parseInt(req.params.id), req.user.id);
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      res.json(schedule);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch post schedule" });
+    }
+  });
+
+  app.put("/api/post-schedules/:id", requireAuth, async (req: any, res) => {
+    try {
+      const updates = {
+        ...req.body,
+        updatedAt: new Date(),
+      };
+      
+      const schedule = await storage.updatePostSchedule(parseInt(req.params.id), updates, req.user.id);
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      res.json(schedule);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update post schedule" });
+    }
+  });
+
+  app.delete("/api/post-schedules/:id", requireAuth, async (req: any, res) => {
+    try {
+      const success = await storage.deletePostSchedule(parseInt(req.params.id), req.user.id);
+      if (!success) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete post schedule" });
+    }
+  });
+
+  // Toggle post schedule activation status
+  app.post("/api/post-schedules/:id/toggle", requireAuth, async (req: any, res) => {
+    try {
+      const scheduleId = parseInt(req.params.id);
+      const { isActive } = req.body;
+      
+      const updates = { isActive, updatedAt: new Date() };
+      const schedule = await storage.updatePostSchedule(scheduleId, updates, req.user.id);
+      
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+      
+      res.json({
+        success: true,
+        message: `Schedule ${isActive ? 'activated' : 'deactivated'} successfully`,
+        schedule
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to toggle schedule status" });
+    }
+  });
+
+  // Run post schedule immediately
+  app.post("/api/post-schedules/:id/run", requireAuth, async (req: any, res) => {
+    try {
+      const scheduleId = parseInt(req.params.id);
+      const startTime = Date.now();
+      
+      // Get the schedule to verify ownership
+      const schedule = await storage.getPostScheduleById(scheduleId, req.user.id);
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      if (!schedule.isActive) {
+        return res.status(400).json({ error: "Cannot execute inactive schedule" });
+      }
+
+      // Simulate content generation and posting process
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const executionDuration = Date.now() - startTime;
+
+      // Update last execution time
+      const updates = { 
+        lastExecutedAt: new Date(), 
+        updatedAt: new Date() 
+      };
+      await storage.updatePostSchedule(scheduleId, updates, req.user.id);
+
+      // Record execution in history
+      await storage.createScheduleExecution({
+        scheduleId: scheduleId,
+        userId: req.user.id,
+        status: "success",
+        message: `Schedule executed successfully on ${schedule.selectedPlatforms.length} platforms`,
+        platformsExecuted: schedule.selectedPlatforms,
+        executionDuration: executionDuration
+      });
+
+      const executionResult = {
+        scheduleId: scheduleId,
+        executedAt: new Date(),
+        platforms: schedule.selectedPlatforms,
+        status: 'success',
+        postsCreated: schedule.selectedPlatforms.length
+      };
+
+      res.json({
+        success: true,
+        message: `Schedule executed successfully on ${schedule.selectedPlatforms.length} platforms`,
+        execution: executionResult
+      });
+    } catch (error) {
+      // Record failed execution
+      try {
+        await storage.createScheduleExecution({
+          scheduleId: parseInt(req.params.id),
+          userId: req.user.id,
+          status: "failed",
+          message: error instanceof Error ? error.message : "Unknown error occurred",
+          platformsExecuted: [],
+          executionDuration: 0
+        });
+      } catch (recordError) {
+        console.error("Failed to record execution error:", recordError);
+      }
+      
+      res.status(500).json({ error: "Failed to execute schedule" });
+    }
+  });
+
+  // Get schedule execution history
+  app.get("/api/post-schedules/:id/history", requireAuth, async (req: any, res) => {
+    try {
+      const scheduleId = parseInt(req.params.id);
+      const schedule = await storage.getPostScheduleById(scheduleId, req.user.id);
+      
+      if (!schedule) {
+        return res.status(404).json({ error: "Schedule not found" });
+      }
+
+      const executions = await storage.getScheduleExecutionsByScheduleId(scheduleId, req.user.id);
+      
+      res.json(executions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch execution history" });
+    }
+  });
   const httpServer = createServer(app);
   return httpServer;
 }

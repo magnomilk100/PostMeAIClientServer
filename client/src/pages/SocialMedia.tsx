@@ -72,9 +72,12 @@ export default function SocialMedia() {
         platforms[platform.id] = true;
       });
 
-      // Override with database values
+      // Override with database values only if explicitly disabled
       configs.forEach(config => {
-        platforms[config.platformId] = config.isEnabled;
+        // Only set to false if explicitly disabled, otherwise keep default true
+        if (config.isEnabled === false) {
+          platforms[config.platformId] = false;
+        }
       });
 
       setSelectedPlatforms(platforms);
@@ -300,9 +303,21 @@ export default function SocialMedia() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-white">{platform.name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {selectedPlatforms[platform.id] ? t('socialMedia.enabled') : t('socialMedia.disabled')}
-                        </p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedPlatforms[platform.id] ? t('socialMedia.enabled') : t('socialMedia.disabled')}
+                          </p>
+                          {status === 'connected' && (
+                            <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                              • Connected
+                            </span>
+                          )}
+                          {status === 'failed' && (
+                            <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                              • Failed
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 

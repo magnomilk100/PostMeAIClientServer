@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,15 @@ import { Switch } from "@/components/ui/switch";
 import { Edit, Trash2, Play, Plus, Layers, Clock, Repeat, Zap, HelpCircle, Loader2, Power } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { 
+  SiFacebook, 
+  SiInstagram, 
+  SiLinkedin, 
+  SiTiktok, 
+  SiYoutube, 
+  SiDiscord, 
+  SiTelegram 
+} from "react-icons/si";
 
 interface Template {
   id: number;
@@ -20,6 +29,7 @@ interface Template {
   frequency: string;
   time: string;
   timezone: string;
+  targetPlatforms: string[];
   isActive: boolean;
   lastExecutedAt: string | null;
   createdAt: string;
@@ -29,11 +39,59 @@ export default function Templates() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [highlightedTemplateId, setHighlightedTemplateId] = useState<number | null>(null);
+
+  // Helper function to get social media icons
+  const getSocialMediaIcon = (platformId: string) => {
+    const iconMap: Record<string, any> = {
+      facebook: SiFacebook,
+      instagram: SiInstagram,
+      linkedin: SiLinkedin,
+      tiktok: SiTiktok,
+      youtube: SiYoutube,
+      discord: SiDiscord,
+      telegram: SiTelegram,
+    };
+    return iconMap[platformId] || null;
+  };
 
   // Fetch templates from database
   const { data: templates = [], isLoading, refetch } = useQuery<Template[]>({
     queryKey: ["/api/templates"],
+    refetchOnMount: true, // Always refetch when component mounts
   });
+
+  // Debug logging
+  useEffect(() => {
+    if (templates.length > 0) {
+      console.log("Templates page: Loaded templates:", templates);
+    }
+  }, [templates]);
+
+  // Check for newly created template to highlight
+  useEffect(() => {
+    const highlightId = localStorage.getItem("highlightTemplateId");
+    if (highlightId && templates.length > 0) {
+      const templateId = parseInt(highlightId);
+      const templateExists = templates.find(t => t.id === templateId);
+      
+      if (templateExists) {
+        setHighlightedTemplateId(templateId);
+        localStorage.removeItem("highlightTemplateId");
+        
+        // Show success toast
+        toast({
+          title: "Template Created Successfully",
+          description: "Your new template has been created and is highlighted below.",
+        });
+        
+        // Remove highlight after 5 seconds
+        setTimeout(() => {
+          setHighlightedTemplateId(null);
+        }, 5000);
+      }
+    }
+  }, [templates, toast]);
 
   // Execute template mutation
   const executeTemplateMutation = useMutation({
@@ -102,13 +160,13 @@ export default function Templates() {
   });
 
   const handleCreateNewTemplate = () => {
-    // Navigate to AI post creation with template creation mode
-    setLocation("/ai-post?mode=template");
+    // Navigate to manual post creation for new template
+    setLocation("/manual-post-wizard");
   };
 
   const handleEditTemplate = (templateId: number) => {
-    // Navigate to AI post edit with template data
-    setLocation(`/ai-post?edit=${templateId}`);
+    // Navigate to manual post creation for editing template
+    setLocation("/manual-post-wizard");
   };
 
   const handleRunTemplate = (templateId: number) => {
@@ -255,6 +313,7 @@ export default function Templates() {
                   <TableRow className="border-b-2 dark:border-gray-700">
                     <TableHead className="font-semibold text-gray-900 dark:text-white">Name</TableHead>
                     <TableHead className="font-semibold text-gray-900 dark:text-white">Objective</TableHead>
+                    <TableHead className="font-semibold text-gray-900 dark:text-white">Target Platforms</TableHead>
                     <TableHead className="font-semibold text-gray-900 dark:text-white">Date Creation</TableHead>
                     <TableHead className="font-semibold text-gray-900 dark:text-white">Last Execution</TableHead>
                     <TableHead className="font-semibold text-gray-900 dark:text-white">Schedule</TableHead>
@@ -264,13 +323,36 @@ export default function Templates() {
                 </TableHeader>
                 <TableBody>
                   {templates?.map((template) => (
-                    <TableRow key={template.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 border-b dark:border-gray-700">
+                    <TableRow 
+                      key={template.id} 
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-800 border-b dark:border-gray-700 transition-all duration-300 ${
+                        highlightedTemplateId === template.id 
+                          ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700 shadow-lg' 
+                          : ''
+                      }`}
+                    >
                       <TableCell className="py-4">
                         <div className="font-medium text-gray-900 dark:text-white">{template.name}</div>
                       </TableCell>
                       <TableCell className="py-4">
                         <div className="max-w-xs truncate text-gray-600 dark:text-gray-300">
                           {template.objective}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {template.targetPlatforms && template.targetPlatforms.length > 0 ? (
+                            template.targetPlatforms.map((platformId) => {
+                              const IconComponent = getSocialMediaIcon(platformId);
+                              return IconComponent ? (
+                                <div key={platformId} className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700">
+                                  <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                                </div>
+                              ) : null;
+                            })
+                          ) : (
+                            <span className="text-xs text-gray-400 dark:text-gray-500">No platforms</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
@@ -384,7 +466,14 @@ export default function Templates() {
               {/* Mobile Card Layout */}
               <div className="md:hidden space-y-4">
                 {templates?.map((template) => (
-                  <Card key={template.id} className="p-4">
+                  <Card 
+                    key={template.id} 
+                    className={`p-4 transition-all duration-300 ${
+                      highlightedTemplateId === template.id 
+                        ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700 shadow-lg' 
+                        : ''
+                    }`}
+                  >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
@@ -402,6 +491,24 @@ export default function Templates() {
                       
                       <div className="text-sm text-gray-600 dark:text-gray-300">
                         <div className="max-w-full truncate">{template.objective}</div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Platforms:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {template.targetPlatforms && template.targetPlatforms.length > 0 ? (
+                            template.targetPlatforms.map((platformId) => {
+                              const IconComponent = getSocialMediaIcon(platformId);
+                              return IconComponent ? (
+                                <div key={platformId} className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700">
+                                  <IconComponent className="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                                </div>
+                              ) : null;
+                            })
+                          ) : (
+                            <span className="text-xs text-gray-400 dark:text-gray-500">No platforms</span>
+                          )}
+                        </div>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4 text-sm">

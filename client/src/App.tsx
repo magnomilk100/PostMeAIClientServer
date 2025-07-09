@@ -7,9 +7,8 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import Layout from "@/components/Layout";
 import Home from "@/pages/Home";
 import Post from "@/pages/Post";
-import AIPost from "@/pages/AIPost";
 import ManualPost from "@/pages/ManualPost";
-import ContentGenerated from "@/pages/ContentGenerated";
+import ManualPostWizard from "@/pages/ManualPostWizard";
 import PlatformsContent from "@/pages/PlatformsContent";
 import Success from "@/pages/Success";
 import Templates from "@/pages/Templates";
@@ -22,6 +21,8 @@ import Billing from "@/pages/Billing";
 import SubscriptionPlan from "@/pages/SubscriptionPlan";
 import WatchDemo from "@/pages/WatchDemo";
 import PendentPosts from "@/pages/PendentPosts";
+import PostSchedule from "@/pages/PostSchedule";
+import PostScheduleWizard from "@/pages/PostScheduleWizard";
 import Login from "@/pages/Login";
 import I18nDemo from "@/pages/I18nDemo";
 import NotFound from "@/pages/not-found";
@@ -32,9 +33,8 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/post" component={Post} />
-        <Route path="/ai-post" component={AIPost} />
         <Route path="/manual-post" component={ManualPost} />
-        <Route path="/content-generated" component={ContentGenerated} />
+        <Route path="/manual-post-wizard" component={ManualPostWizard} />
         <Route path="/platforms-content" component={PlatformsContent} />
         <Route path="/success" component={Success} />
         <Route path="/templates" component={Templates} />
@@ -47,6 +47,8 @@ function Router() {
         <Route path="/subscription-plan" component={SubscriptionPlan} />
         <Route path="/watch-demo" component={WatchDemo} />
         <Route path="/pendent-posts" component={PendentPosts} />
+        <Route path="/post-schedule" component={PostSchedule} />
+        <Route path="/post-schedule-wizard" component={PostScheduleWizard} />
         <Route path="/login" component={Login} />
         <Route path="/i18n-demo" component={I18nDemo} />
         <Route component={NotFound} />

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Search, Bell, Rocket, Home, Edit, Layers, Image, Share2, Settings, Book, LogOut, Loader2, CreditCard, Crown, Video, Clock, X, Users, MessageSquare, AlertTriangle, CheckCircle, Globe, Menu } from "lucide-react";
+import { Search, Bell, Rocket, Home, Edit, Layers, Image, Share2, Settings, Book, LogOut, Loader2, CreditCard, Crown, Video, Clock, X, Users, MessageSquare, AlertTriangle, CheckCircle, Globe, Menu, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const businessNavigation = [
   { name: "Home", href: "/", icon: Home },
   { name: "Post", href: "/post", icon: Edit },
+  { name: "Post Scheduler", href: "/post-schedule", icon: Calendar, requiresAuth: true },
   { name: "Templates", href: "/templates", icon: Layers, requiresAuth: true },
-  { name: "Images", href: "/images", icon: Image, requiresAuth: true },
+  { name: "Images and Videos", href: "/images", icon: Image, requiresAuth: true },
   { name: "Social Media", href: "/social-media", icon: Share2, requiresAuth: true },
   { name: "Pendent Posts", href: "/pendent-posts", icon: Clock, requiresAuth: true },
 ];
@@ -203,7 +204,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center animate-float shadow-lg">
               <Rocket className="text-white w-4 h-4" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent dark:bg-none dark:text-white">PostMe AI</span>
+            <span className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent dark:bg-none dark:text-white">PostMe AI</span>
           </div>
           
           {/* Enhanced Search with Database Integration - Hidden on mobile */}
@@ -433,7 +434,8 @@ export default function Layout({ children }: LayoutProps) {
           {/* Business Navigation Section */}
           <div className="space-y-1">
             {getVisibleBusinessNavigation().map((item) => {
-              const isActive = location === item.href;
+              const isActive = location === item.href || 
+                (item.href === '/post' && (location === '/post-schedule-wizard' || location === '/manual-post-wizard'));
               const IconComponent = item.icon;
               return (
                 <Link key={item.name} href={item.href}>

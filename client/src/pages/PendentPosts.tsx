@@ -136,11 +136,11 @@ export default function PendentPosts() {
   };
 
   return (
-    <div className="page-content">
+    <div className="page-content-full">
       <div>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t('pendentPosts.title')}</h1>
-          <p className="text-gray-600 dark:text-gray-300">{t('pendentPosts.subtitle')}</p>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">{t('pendentPosts.title')}</h1>
+          <p className="text-enhanced text-gray-600 dark:text-gray-300">{t('pendentPosts.subtitle')}</p>
         </div>
 
         {posts.length === 0 ? (

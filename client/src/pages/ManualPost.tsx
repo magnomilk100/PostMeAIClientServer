@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -84,6 +84,8 @@ const manualPostSchema = z.object({
 
 type ManualPostForm = z.infer<typeof manualPostSchema>;
 
+
+
 export default function ManualPost() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -97,6 +99,7 @@ export default function ManualPost() {
   const [activeImageTab, setActiveImageTab] = useState<"library" | "upload" | "ai">("library");
   const [showAIImageDialog, setShowAIImageDialog] = useState(false);
   const [aiImagePrompt, setAiImagePrompt] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   
@@ -154,6 +157,31 @@ export default function ManualPost() {
       }, 100);
     }
   }, [isAuthenticated, isLoading]);
+
+  // Initialize expanded folders for folders with selected images
+  useEffect(() => {
+    if (images.length > 0 && selectedImages.length > 0) {
+      const imagesByFolder = images.reduce((acc: Record<string, DBImage[]>, image: DBImage) => {
+        const folderName = image.folder || 'uncategorized';
+        if (!acc[folderName]) {
+          acc[folderName] = [];
+        }
+        acc[folderName].push(image);
+        return acc;
+      }, {} as Record<string, DBImage[]>);
+
+      const foldersWithSelected = Object.keys(imagesByFolder).filter(folderName => 
+        imagesByFolder[folderName].some((img: DBImage) => selectedImages.find((sel: DBImage) => sel.id === img.id))
+      );
+      
+      const initialExpanded = foldersWithSelected.reduce((acc, folderName) => {
+        acc[folderName] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+      
+      setExpandedFolders(prev => ({ ...initialExpanded, ...prev }));
+    }
+  }, [images, selectedImages]);
 
   const form = useForm<ManualPostForm>({
     resolver: zodResolver(manualPostSchema),
@@ -333,6 +361,13 @@ export default function ManualPost() {
 
   const handleFolderSelect = (folderName: string) => {
     setSelectedFolder(selectedFolder === folderName ? null : folderName);
+  };
+
+  const toggleFolderExpansion = (folderName: string) => {
+    setExpandedFolders(prev => ({
+      ...prev,
+      [folderName]: !prev[folderName]
+    }));
   };
 
   // Get unique folders from database images, including "uncategorized" for null folders
@@ -796,47 +831,110 @@ export default function ManualPost() {
                             </div>
                           )}
                           
-                          {/* Simple image grid when we have images */}
-                          {!imagesLoading && !foldersLoading && images.length > 0 && (
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                              {images.map((image) => {
-                                const isSelected = selectedImages.find(img => img.id === image.id);
-                                const isDisabled = !isSelected && selectedImages.length >= MAX_IMAGES;
-                                
-                                return (
-                                  <div
-                                    key={image.id}
-                                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                                      isSelected 
-                                        ? "border-primary shadow-md" 
-                                        : isDisabled 
-                                          ? "border-gray-200 dark:border-gray-600 opacity-50 cursor-not-allowed"
-                                          : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
-                                    }`}
-                                    onClick={() => !isDisabled && handleImageSelect(image)}
-                                  >
-                                    <img
-                                      src={`data:${image.mimeType};base64,${image.binaryData}`}
-                                      alt={image.originalName}
-                                      className="w-full h-16 object-cover"
-                                    />
-                                    {isSelected && (
-                                      <div className="absolute inset-0 bg-primary bg-opacity-20 flex items-center justify-center">
-                                        <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                                          <Eye className="w-3 h-3 text-white" />
+                          {/* Grouped image display by folders */}
+                          {!imagesLoading && !foldersLoading && images.length > 0 && (() => {
+                            // Group images by folder
+                            const imagesByFolder = images.reduce((acc: Record<string, DBImage[]>, image: DBImage) => {
+                              const folderName = image.folder || 'uncategorized';
+                              if (!acc[folderName]) {
+                                acc[folderName] = [];
+                              }
+                              acc[folderName].push(image);
+                              return acc;
+                            }, {} as Record<string, DBImage[]>);
+
+                            // Sort folders so that ones with selected images appear first
+                            const sortedFolders = Object.keys(imagesByFolder).sort((a, b) => {
+                              const aHasSelected = imagesByFolder[a].some((img: DBImage) => selectedImages.find((sel: DBImage) => sel.id === img.id));
+                              const bHasSelected = imagesByFolder[b].some((img: DBImage) => selectedImages.find((sel: DBImage) => sel.id === img.id));
+                              if (aHasSelected && !bHasSelected) return -1;
+                              if (!aHasSelected && bHasSelected) return 1;
+                              return a.localeCompare(b);
+                            });
+
+                            return (
+                              <div className="space-y-2">
+                                {sortedFolders.map((folderName) => {
+                                  const folderImages = imagesByFolder[folderName];
+                                  const selectedInFolder = folderImages.filter((img: DBImage) => selectedImages.find((sel: DBImage) => sel.id === img.id));
+                                  const isExpanded = expandedFolders[folderName] ?? false;
+                                  
+                                  return (
+                                    <div key={folderName} className="space-y-2">
+                                      {/* Clickable Folder Header */}
+                                      <div 
+                                        className="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg -mx-2 transition-colors"
+                                        onClick={() => toggleFolderExpansion(folderName)}
+                                      >
+                                        <div className="flex items-center space-x-2">
+                                          <div className="flex items-center space-x-1">
+                                            {isExpanded ? (
+                                              <ChevronDown className="w-4 h-4 text-gray-500" />
+                                            ) : (
+                                              <ChevronUp className="w-4 h-4 text-gray-500 transform rotate-180" />
+                                            )}
+                                            <h4 className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                                              {folderName === 'uncategorized' ? '📁 Uncategorized' : `📁 ${folderName}`}
+                                            </h4>
+                                          </div>
+                                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                                            ({folderImages.length} image{folderImages.length !== 1 ? 's' : ''})
+                                          </span>
+                                          {selectedInFolder.length > 0 && (
+                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                              {selectedInFolder.length} selected
+                                            </Badge>
+                                          )}
                                         </div>
                                       </div>
-                                    )}
-                                    {isDisabled && !isSelected && (
-                                      <div className="absolute inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center">
-                                        <div className="text-white text-xs font-medium">Max</div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                                      
+                                      {/* Collapsible Folder Images Grid */}
+                                      {isExpanded && (
+                                        <div className="grid grid-cols-3 md:grid-cols-5 gap-2 ml-4 border-l-2 border-gray-100 dark:border-gray-700 pl-4">
+                                          {folderImages.map((image: DBImage) => {
+                                            const isSelected = selectedImages.find((img: DBImage) => img.id === image.id);
+                                            const isDisabled = !isSelected && selectedImages.length >= MAX_IMAGES;
+                                            
+                                            return (
+                                              <div
+                                                key={image.id}
+                                                className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                                                  isSelected 
+                                                    ? "border-primary shadow-md" 
+                                                    : isDisabled 
+                                                      ? "border-gray-200 dark:border-gray-600 opacity-50 cursor-not-allowed"
+                                                      : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                                                }`}
+                                                onClick={() => !isDisabled && handleImageSelect(image)}
+                                              >
+                                                <img
+                                                  src={`data:${image.mimeType};base64,${image.binaryData}`}
+                                                  alt={image.originalName}
+                                                  className="w-full h-16 object-cover"
+                                                />
+                                                {isSelected && (
+                                                  <div className="absolute inset-0 bg-primary bg-opacity-20 flex items-center justify-center">
+                                                    <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                                                      <Eye className="w-3 h-3 text-white" />
+                                                    </div>
+                                                  </div>
+                                                )}
+                                                {isDisabled && !isSelected && (
+                                                  <div className="absolute inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center">
+                                                    <div className="text-white text-xs font-medium">Max</div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </TabsContent>
 

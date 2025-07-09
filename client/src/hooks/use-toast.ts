@@ -168,6 +168,12 @@ function toast({ ...props }: Toast) {
   }
 }
 
+// Helper functions for different toast types
+const success = (props: Omit<Toast, "variant">) => toast({ ...props, variant: "success" })
+const error = (props: Omit<Toast, "variant">) => toast({ ...props, variant: "destructive" })
+const warning = (props: Omit<Toast, "variant">) => toast({ ...props, variant: "warning" })
+const info = (props: Omit<Toast, "variant">) => toast({ ...props, variant: "info" })
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
@@ -184,6 +190,10 @@ function useToast() {
   return {
     ...state,
     toast,
+    success,
+    error,
+    warning,
+    info,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }

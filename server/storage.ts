@@ -8,6 +8,8 @@ import {
   folders,
   images,
   socialMediaConfigs,
+  postSchedules,
+  scheduleExecutions,
   type User,
   type UpsertUser,
   type LocalAuth,
@@ -27,6 +29,10 @@ import {
   type InsertImage,
   type SocialMediaConfig,
   type InsertSocialMediaConfig,
+  type PostSchedule,
+  type InsertPostSchedule,
+  type ScheduleExecution,
+  type InsertScheduleExecution,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -94,6 +100,17 @@ export interface IStorage {
   updateUserTheme(userId: string, themeData: Partial<User>): Promise<User>;
   updateUserCompany(userId: string, companyData: Partial<User>): Promise<User>;
   updateUserSecurity(userId: string, securityData: Partial<User>): Promise<User>;
+
+  // Post Schedule operations
+  createPostSchedule(schedule: InsertPostSchedule): Promise<PostSchedule>;
+  getPostSchedulesByUserId(userId: string): Promise<PostSchedule[]>;
+  getPostScheduleById(id: number, userId: string): Promise<PostSchedule | undefined>;
+  updatePostSchedule(id: number, updates: Partial<PostSchedule>, userId: string): Promise<PostSchedule | undefined>;
+  deletePostSchedule(id: number, userId: string): Promise<boolean>;
+
+  // Schedule Execution operations
+  createScheduleExecution(execution: InsertScheduleExecution): Promise<ScheduleExecution>;
+  getScheduleExecutionsByScheduleId(scheduleId: number, userId: string): Promise<ScheduleExecution[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -146,22 +163,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async authenticateUser(email: string, password: string): Promise<User | null> {
-    console.log(`[Storage] authenticateUser() called for ${email}`);
     const user = await this.getUserByEmail(email);
-    console.log(`[Storage] getUserByEmail returned:`, user);
     if (!user || !user.password || user.authProvider !== "local") {
-      console.log(`[Storage] No local user found for ${email}`);
       return null;
     }
     
     const isValid = await bcrypt.compare(password, user.password);
-    console.log(`[Storage] password compare result for ${email}:`, isValid);
     if (!isValid) {
       return null;
     }
     
     await this.updateLastAuthMethod(user.id, "local");
-    console.log(`[Storage] updateLastAuthMethod done for ${email}`);
     return user;
   }
 
@@ -249,13 +261,17 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         template: templates,
+        post: posts,
       })
       .from(templates)
       .leftJoin(posts, eq(templates.postId, posts.id))
       .where(eq(posts.userId, userId))
       .orderBy(templates.createdAt);
     
-    return results.map(result => result.template);
+    return results.map(result => ({
+      ...result.template,
+      objective: result.post?.subject || "No objective", // Use post subject as objective
+    }));
   }
 
   async getTemplateById(id: number, userId: string): Promise<Template | undefined> {
@@ -457,20 +473,50 @@ export class DatabaseStorage implements IStorage {
     status: string,
     error?: string
   ): Promise<void> {
-    await db
-      .update(socialMediaConfigs)
-      .set({
-        testStatus: status,
-        testError: error || null,
-        lastTestedAt: new Date(),
-        updatedAt: new Date(),
-      })
+    // First, try to find existing record
+    const existingConfig = await db
+      .select()
+      .from(socialMediaConfigs)
       .where(
         and(
           eq(socialMediaConfigs.userId, userId),
           eq(socialMediaConfigs.platformId, platformId)
         )
-      );
+      )
+      .limit(1);
+
+    if (existingConfig.length > 0) {
+      // Update existing record
+      await db
+        .update(socialMediaConfigs)
+        .set({
+          testStatus: status,
+          testError: error || null,
+          lastTestedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(socialMediaConfigs.userId, userId),
+            eq(socialMediaConfigs.platformId, platformId)
+          )
+        );
+    } else {
+      // Create new record
+      await db
+        .insert(socialMediaConfigs)
+        .values({
+          userId,
+          platformId,
+          isEnabled: true, // Default to enabled when testing
+          apiKey: '',
+          testStatus: status,
+          testError: error || null,
+          lastTestedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+    }
   }
 
   // Subscription operations
@@ -560,6 +606,63 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return user;
   }
+
+  async createPostSchedule(insertSchedule: InsertPostSchedule): Promise<PostSchedule> {
+    const [schedule] = await db
+      .insert(postSchedules)
+      .values(insertSchedule)
+      .returning();
+    return schedule;
+  }
+
+  async getPostSchedulesByUserId(userId: string): Promise<PostSchedule[]> {
+    return await db
+      .select()
+      .from(postSchedules)
+      .where(eq(postSchedules.userId, userId))
+      .orderBy(desc(postSchedules.createdAt));
+  }
+
+  async getPostScheduleById(id: number, userId: string): Promise<PostSchedule | undefined> {
+    const [schedule] = await db
+      .select()
+      .from(postSchedules)
+      .where(and(eq(postSchedules.id, id), eq(postSchedules.userId, userId)));
+    return schedule || undefined;
+  }
+
+  async updatePostSchedule(id: number, updates: Partial<PostSchedule>, userId: string): Promise<PostSchedule | undefined> {
+    const [schedule] = await db
+      .update(postSchedules)
+      .set(updates)
+      .where(and(eq(postSchedules.id, id), eq(postSchedules.userId, userId)))
+      .returning();
+    return schedule || undefined;
+  }
+
+  async deletePostSchedule(id: number, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(postSchedules)
+      .where(and(eq(postSchedules.id, id), eq(postSchedules.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async createScheduleExecution(insertExecution: InsertScheduleExecution): Promise<ScheduleExecution> {
+    const [execution] = await db
+      .insert(scheduleExecutions)
+      .values(insertExecution)
+      .returning();
+    return execution;
+  }
+
+  async getScheduleExecutionsByScheduleId(scheduleId: number, userId: string): Promise<ScheduleExecution[]> {
+    return await db
+      .select()
+      .from(scheduleExecutions)
+      .where(and(eq(scheduleExecutions.scheduleId, scheduleId), eq(scheduleExecutions.userId, userId)))
+      .orderBy(desc(scheduleExecutions.executedAt));
+  }
 }
+
 
 export const storage = new DatabaseStorage();

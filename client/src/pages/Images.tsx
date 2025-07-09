@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Trash2, FolderPlus, Folder, Image as ImageIcon, Eye, Palette, Camera, Layers, HelpCircle, Move, Check, X } from "lucide-react";
+import { Upload, Trash2, FolderPlus, Folder, Image as ImageIcon, Eye, Palette, Camera, Layers, HelpCircle, Move, Check, X, Video, Play } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -44,6 +44,11 @@ const fileToBase64 = (file: File): Promise<string> => {
 // Helper to get data URL from base64
 const getImageDataUrl = (base64: string, mimeType: string): string => {
   return `data:${mimeType};base64,${base64}`;
+};
+
+// Helper to check if file is a video
+const isVideoFile = (mimeType: string): boolean => {
+  return mimeType.startsWith('video/');
 };
 
 // Helper to format file size
@@ -198,21 +203,27 @@ export default function Images() {
     if (files) {
       // Validate files and upload to database
       Array.from(files).forEach((file) => {
-        // Validate file type
-        if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+        // Validate file type (support images and videos)
+        const supportedImageTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+        const supportedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/mov', 'video/avi'];
+        
+        if (!supportedImageTypes.includes(file.type) && !supportedVideoTypes.includes(file.type)) {
           toast({
             title: "Invalid File Type",
-            description: `${file.name} is not a supported image format. Please use JPG or PNG.`,
+            description: `${file.name} is not a supported format. Please use JPG, PNG for images or MP4, WEBM, OGG for videos.`,
             variant: "destructive",
           });
           return;
         }
 
-        // Validate file size (5MB limit)
-        if (file.size > 5 * 1024 * 1024) {
+        // Validate file size (5MB limit for images, 50MB for videos)
+        const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
+        const sizeLimit = file.type.startsWith('video/') ? '50MB' : '5MB';
+        
+        if (file.size > maxSize) {
           toast({
             title: "File Too Large",
-            description: `${file.name} is too large. Please keep files under 5MB.`,
+            description: `${file.name} is too large. Please keep files under ${sizeLimit}.`,
             variant: "destructive",
           });
           return;
@@ -295,13 +306,13 @@ export default function Images() {
       );
 
       toast({
-        title: "Images Moved",
-        description: `${selectedImages.length} image(s) moved to "${targetFolder}" folder.`,
+        title: "Media Moved",
+        description: `${selectedImages.length} item(s) moved to "${targetFolder}" folder.`,
       });
     } catch (error) {
       toast({
         title: "Move Failed",
-        description: "Failed to move some images. Please try again.",
+        description: "Failed to move some media files. Please try again.",
         variant: "destructive",
       });
     }
@@ -318,14 +329,14 @@ export default function Images() {
   };
 
   return (
-    <div className="page-content">
+    <div className="page-content-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 md:mb-8 gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-standard">Images</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-standard">Images & Videos</h1>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
           {!isMoveMode ? (
             <>
               <div className="flex items-center space-x-2">
-                <Label htmlFor="upload-folder" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Label htmlFor="upload-folder" className="text-enhanced-small font-medium text-gray-700 dark:text-gray-300">
                   Upload to:
                 </Label>
                 <Select value={uploadFolder} onValueChange={setUploadFolder}>
@@ -356,11 +367,11 @@ export default function Images() {
                 onClick={() => setIsMoveMode(true)}
               >
                 <Move className="w-4 h-4 mr-2" />
-                Move Images
+                Move Media
               </Button>
               <Button onClick={handleUpload} className="gradient-primary">
                 <Upload className="w-4 h-4 mr-2" />
-                Upload Images
+                Upload Media
               </Button>
             </>
           ) : (
@@ -403,12 +414,12 @@ export default function Images() {
             <AccordionTrigger className="text-green-700 dark:text-green-300 hover:no-underline">
               <div className="flex items-center">
                 <HelpCircle className="w-5 h-5 mr-2" />
-                What are Images in PostMeAI?
+                What are Images and Videos in PostMeAI?
               </div>
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pb-4">
               <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                Images are the visual foundation of your social media content. Our image library serves as your centralized media repository, 
+                Images and videos are the visual foundation of your social media content. Our media library serves as your centralized repository, 
                 helping you organize, manage, and quickly access all your visual assets for creating engaging posts.
               </p>
               
@@ -419,7 +430,7 @@ export default function Images() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white">Visual Content</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Photos, graphics, logos, and branded visuals for your posts</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Photos, videos, graphics, logos, and branded visuals for your posts</p>
                   </div>
                 </div>
                 
@@ -465,7 +476,7 @@ export default function Images() {
         ref={fileInputRef}
         onChange={handleFileChange}
         multiple
-        accept="image/*"
+        accept="image/*,video/*"
         className="hidden"
       />
 
@@ -478,7 +489,7 @@ export default function Images() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Images</SelectItem>
+              <SelectItem value="all">All Media</SelectItem>
               {uniqueFolders.map((folder) => (
                 <SelectItem key={folder} value={folder}>
                   <div className="flex items-center space-x-2">
@@ -490,7 +501,7 @@ export default function Images() {
             </SelectContent>
           </Select>
           <Badge variant="secondary">
-            {filteredImages.length} image{filteredImages.length !== 1 ? 's' : ''}
+            {filteredImages.length} item{filteredImages.length !== 1 ? 's' : ''}
           </Badge>
         </div>
       </div>
@@ -520,11 +531,26 @@ export default function Images() {
                       />
                     </div>
                   )}
-                  <img
-                    src={getImageDataUrl(image.binaryData, image.mimeType)}
-                    alt={image.originalName}
-                    className="w-full h-full object-cover"
-                  />
+                  {isVideoFile(image.mimeType) ? (
+                    <div className="relative w-full h-full bg-gray-900 flex items-center justify-center">
+                      <video
+                        src={getImageDataUrl(image.binaryData, image.mimeType)}
+                        className="w-full h-full object-cover"
+                        preload="metadata"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-black bg-opacity-50 rounded-full p-2">
+                          <Play className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={getImageDataUrl(image.binaryData, image.mimeType)}
+                      alt={image.originalName}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   {!isMoveMode && (
                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
@@ -570,11 +596,11 @@ export default function Images() {
           <div className="text-center py-12">
             <ImageIcon className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-300 mb-4">
-              {selectedFolder === "all" ? "No images uploaded yet" : `No images in ${selectedFolder} folder`}
+              {selectedFolder === "all" ? "No media uploaded yet" : `No media in ${selectedFolder} folder`}
             </p>
             <Button onClick={handleUpload} variant="outline" className="dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
               <Upload className="w-4 h-4 mr-2" />
-              Upload Your First Image
+              Upload Your First Media
             </Button>
           </div>
         )}
@@ -611,20 +637,36 @@ export default function Images() {
         </DialogContent>
       </Dialog>
 
-      {/* Image Preview Modal */}
+      {/* Image/Video Preview Modal */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{selectedImage?.originalName}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedImage && isVideoFile(selectedImage.mimeType) ? (
+                <Video className="w-5 h-5" />
+              ) : (
+                <ImageIcon className="w-5 h-5" />
+              )}
+              {selectedImage?.originalName}
+            </DialogTitle>
           </DialogHeader>
           {selectedImage && (
             <div className="space-y-4">
               <div className="relative">
-                <img
-                  src={getImageDataUrl(selectedImage.binaryData, selectedImage.mimeType)}
-                  alt={selectedImage.originalName}
-                  className="w-full max-h-96 object-contain rounded-lg"
-                />
+                {isVideoFile(selectedImage.mimeType) ? (
+                  <video
+                    src={getImageDataUrl(selectedImage.binaryData, selectedImage.mimeType)}
+                    className="w-full max-h-96 object-contain rounded-lg"
+                    controls
+                    autoPlay
+                  />
+                ) : (
+                  <img
+                    src={getImageDataUrl(selectedImage.binaryData, selectedImage.mimeType)}
+                    alt={selectedImage.originalName}
+                    className="w-full max-h-96 object-contain rounded-lg"
+                  />
+                )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
@@ -645,13 +687,13 @@ export default function Images() {
         </DialogContent>
       </Dialog>
 
-      {/* Move Images Dialog */}
+      {/* Move Media Dialog */}
       <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Move Images</DialogTitle>
+            <DialogTitle>Move Media</DialogTitle>
             <DialogDescription>
-              Move {selectedImages.length} selected image(s) to a different folder.
+              Move {selectedImages.length} selected item(s) to a different folder.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -679,7 +721,7 @@ export default function Images() {
               </Button>
               <Button onClick={confirmMoveImages} className="gradient-primary">
                 <Move className="w-4 h-4 mr-2" />
-                Move Images
+                Move Media
               </Button>
             </div>
           </div>

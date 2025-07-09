@@ -362,6 +362,14 @@
   @apply max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8;
 }
 
+/* Full Width Layout - Edge to Edge from sidebar to right edge */
+.page-content-full {
+  @apply w-full px-6 sm:px-8 lg:px-12 py-8;
+}
+
+.page-content-full-expanded {
+  @apply w-full px-8 sm:px-10 lg:px-16 py-10;
+}
 .card-standard {
   @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
 }
@@ -378,6 +386,36 @@
   @apply text-gray-500 dark:text-gray-400;
 }
 
+/* Enhanced Text Size Classes */
+.text-enhanced {
+  @apply text-lg;
+}
+
+.text-enhanced-medium {
+  @apply text-xl;
+}
+
+.text-enhanced-large {
+  @apply text-2xl;
+}
+
+.text-enhanced-small {
+  @apply text-base;
+}
+
+/* PostSchedule specific enhanced text sizes */
+.post-schedule-content {
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.post-schedule-content .text-sm {
+  font-size: 1rem;
+}
+
+.post-schedule-content .text-xs {
+  font-size: 0.9rem;
+}
 /* Mobile responsive utilities */
 .mobile-only {
   @apply block md:hidden;
@@ -436,4 +474,90 @@
 
 .mobile-button-group {
   @apply flex flex-col sm:flex-row gap-3 sm:gap-4;
+}
+
+/* Enhanced Toast Animations */
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(calc(100% + var(--viewport-padding)));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(calc(100% + var(--viewport-padding)));
+    opacity: 0;
+  }
+}
+
+@keyframes toast-swipe-out {
+  from {
+    transform: translateX(var(--radix-toast-swipe-end-x));
+  }
+  to {
+    transform: translateX(calc(100% + var(--viewport-padding)));
+  }
+}
+
+/* Toast icon animations */
+@keyframes toast-icon-bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+  60% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Success toast specific styles */
+[data-state="open"][data-variant="success"] {
+  animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-state="open"][data-variant="success"] svg {
+  animation: toast-icon-bounce 0.6s ease-in-out;
+}
+
+/* Error toast specific styles */
+[data-state="open"][data-variant="destructive"] {
+  animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-state="open"][data-variant="destructive"] svg {
+  animation: toast-icon-bounce 0.4s ease-in-out;
+}
+
+/* Toast blur effect for better visual separation */
+[data-radix-toast-viewport] {
+  backdrop-filter: blur(8px);
+}
+
+/* Enhanced toast container styling */
+[data-radix-toast-viewport] > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-radix-toast-viewport] > *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  border-radius: inherit;
+  z-index: -1;
 }
