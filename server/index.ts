@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import dotenv from "dotenv";
+import { setupAuth } from "./auth";
 import cors from "cors";
 
 dotenv.config();
@@ -11,13 +12,22 @@ const app = express();
 app.set("trust proxy", 1);
 // before your routes, add: by Magno CHATGPT too
 app.use(cors({
-  origin: "https://postme-ai-frontend-2d76778b4014.herokuapp.com", 
+  //origin: "https://postme-ai-frontend-2d76778b4014.herokuapp.com", 
+  origin: "https://www.postmeai.com",   
   credentials: true,
 }));
 
 
 app.use(express.json({ limit: '10mb' })); // Increase limit for base64 image uploads
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Initialize authentication (Passport + sessions + all strategies)
+// ────────────────────────────────────────────────────────────────────────────────
+setupAuth(app);
+
+
 
 app.use((req, res, next) => {
   const start = Date.now();
