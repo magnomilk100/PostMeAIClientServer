@@ -93,10 +93,12 @@ export function setupAuth(app: Express) {
   }
 
   // Google strategy
+  console.log('Google OAuth configured with Client ID:', process.env.GOOGLE_CLIENT_ID);
+  console.log('Callback URL:', process.env.CALLBACK_URL);
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    console.log('Google OAuth configured with Client ID:', process.env.GOOGLE_CLIENT_ID);
+    //console.log('Google OAuth configured with Client ID:', process.env.GOOGLE_CLIENT_ID);
     //console.log('Callback URL:', process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/google/callback" : "http://localhost:5000/auth/google/callback");
-    console.log('Callback URL:', process.env.CALLBACK_URL);
+    //console.log('Callback URL:', process.env.CALLBACK_URL);
 
     passport.use(new GoogleStrategy({  ///"http://localhost:5000/auth/google/callback"
       clientID: process.env.GOOGLE_CLIENT_ID,
