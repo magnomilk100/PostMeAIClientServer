@@ -25,7 +25,7 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 // ────────────────────────────────────────────────────────────────────────────────
 // Initialize authentication (Passport + sessions + all strategies)
 // ────────────────────────────────────────────────────────────────────────────────
-//setupAuth(app);
+setupAuth(app);
 
 
 
