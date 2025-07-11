@@ -48,14 +48,14 @@ export interface User {
 }
 
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery<User>({
+  const { data: user, isLoading, error, refetch } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // No cache to ensure fresh data
     refetchInterval: false, // Disable automatic refetching
-    refetchOnWindowFocus: false, // Disable refetch on window focus
-    refetchOnMount: true, // Only refetch on component mount
-    enabled: true, // Always enabled but controlled by other options
+    refetchOnWindowFocus: true, // Enable refetch on window focus to catch login state changes
+    refetchOnMount: true, // Refetch on component mount
+    enabled: true, // Always enabled
   });
 
   return {
@@ -63,6 +63,7 @@ export function useAuth() {
     isLoading,
     isAuthenticated: !!user,
     error,
+    refetch,
   };
 }
 
@@ -85,8 +86,12 @@ export function useLogin() {
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Clear any existing cached data and force fresh fetch
+      queryClient.setQueryData(["/api/auth/user"], data.user);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
     },
   });
 }
@@ -115,8 +120,12 @@ export function useRegister() {
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Clear any existing cached data and force fresh fetch
+      queryClient.setQueryData(["/api/auth/user"], data.user);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
     },
   });
 }

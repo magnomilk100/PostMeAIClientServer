@@ -916,7 +916,7 @@ function setupAuth(app2) {
   const sessionTtl = 7 * 24 * 60 * 60 * 1e3;
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    pool,
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions"
@@ -960,10 +960,12 @@ function setupAuth(app2) {
     }
   }));
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+    console.log("Facebook OAuth configured with App ID:", process.env.FACEBOOK_APP_ID);
+    console.log("Facebook callback URL:", process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/callback" : "http://localhost:5000/auth/facebook/callback");
     passport.use(new FacebookStrategy({
       clientID: process.env.FACEBOOK_APP_ID,
       clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL: "/auth/facebook/callback",
+      callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/callback" : "http://localhost:5000/auth/facebook/callback",
       profileFields: ["id", "emails", "name", "picture.type(large)"]
     }, async (accessToken, refreshToken, profile, done) => {
       try {
@@ -984,9 +986,9 @@ function setupAuth(app2) {
       }
     }));
   }
+  console.log("Google OAuth configured with Client ID:", process.env.GOOGLE_CLIENT_ID);
+  console.log("Callback URL:", process.env.CALLBACK_URL);
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    console.log("Google OAuth configured with Client ID:", process.env.GOOGLE_CLIENT_ID);
-    console.log("Callback URL:", process.env.CALLBACK_URL);
     passport.use(new GoogleStrategy({
       ///"http://localhost:5000/auth/google/callback"
       clientID: process.env.GOOGLE_CLIENT_ID,
@@ -1013,26 +1015,32 @@ function setupAuth(app2) {
     }));
   }
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+    console.log("LinkedIn OAuth configured with Client ID:", process.env.LINKEDIN_CLIENT_ID);
+    console.log("LinkedIn callback URL:", process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/callback" : "http://localhost:5000/auth/linkedin/callback");
     passport.use(new LinkedInStrategy({
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: "/auth/linkedin/callback",
-      scope: ["r_emailaddress", "r_liteprofile"]
+      callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/callback" : "http://localhost:5000/auth/linkedin/callback",
+      scope: ["openid", "profile", "email"],
+      state: true
     }, async (accessToken, refreshToken, profile, done) => {
       try {
+        console.log("LinkedIn profile received:", JSON.stringify(profile, null, 2));
         const userId = `linkedin_${profile.id}`;
         const user = await storage.upsertUser({
           id: userId,
-          email: profile.emails?.[0]?.value || null,
-          firstName: profile.name?.givenName || null,
-          lastName: profile.name?.familyName || null,
-          profileImageUrl: profile.photos?.[0]?.value || null,
+          email: profile.emails?.[0]?.value || profile.email || null,
+          firstName: profile.name?.givenName || profile.given_name || null,
+          lastName: profile.name?.familyName || profile.family_name || null,
+          profileImageUrl: profile.photos?.[0]?.value || profile.picture || null,
           authProvider: "linkedin",
           providerId: profile.id,
           lastAuthMethod: "linkedin"
         });
+        console.log("LinkedIn user created/updated:", user);
         return done(null, user);
       } catch (error) {
+        console.error("LinkedIn authentication error:", error);
         return done(error);
       }
     }));
@@ -1312,12 +1320,42 @@ async function registerRoutes(app2) {
     res.redirect("/");
   });
   app2.get("/auth/google", passport2.authenticate("google", { scope: ["profile", "email"] }));
-  app2.get("/auth/google/callback", passport2.authenticate("google", { failureRedirect: "/login" }), (req, res) => {
-    res.redirect("/");
+  app2.get("/auth/google/callback", (req, res, next) => {
+    console.log("Google OAuth callback hit with query:", req.query);
+    passport2.authenticate("google", { failureRedirect: "/login" })(req, res, (err) => {
+      if (err) {
+        console.error("Google OAuth error:", err);
+        return res.redirect("/login?error=oauth_failed");
+      }
+      console.log("Google OAuth success, user:", req.user);
+      res.redirect("/");
+    });
   });
-  app2.get("/auth/linkedin", passport2.authenticate("linkedin"));
-  app2.get("/auth/linkedin/callback", passport2.authenticate("linkedin", { failureRedirect: "/login" }), (req, res) => {
-    res.redirect("/");
+  app2.get("/auth/linkedin", passport2.authenticate("linkedin", { scope: ["openid", "profile", "email"] }));
+  app2.get("/auth/linkedin/callback", (req, res, next) => {
+    console.log("LinkedIn OAuth callback hit with query:", req.query);
+    passport2.authenticate("linkedin", { failureRedirect: "/login" })(req, res, (err) => {
+      if (err) {
+        console.error("LinkedIn OAuth error:", err);
+        return res.send(`
+          <script>
+            window.close();
+            if (window.opener) {
+              window.opener.location.href = '/login?error=linkedin_oauth_failed';
+            }
+          </script>
+        `);
+      }
+      console.log("LinkedIn OAuth success, user:", req.user);
+      res.send(`
+        <script>
+          window.close();
+          if (window.opener) {
+            window.opener.location.href = '/';
+          }
+        </script>
+      `);
+    });
   });
   app2.get("/auth/github", passport2.authenticate("github", { scope: ["user:email"] }));
   app2.get("/auth/github/callback", passport2.authenticate("github", { failureRedirect: "/login" }), (req, res) => {
@@ -1919,45 +1957,6 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to save social media configuration" });
     }
   });
-  app2.post("/api/social-media-configs/:platformId/test", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const { platformId } = req.params;
-      const { apiKey } = req.body;
-      if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length === 0) {
-        await storage.updateSocialMediaConfigTestStatus(userId, platformId, "failed", "API key is required for testing");
-        return res.status(400).json({
-          success: false,
-          error: "API key is required for testing",
-          status: "failed"
-        });
-      }
-      await storage.updateSocialMediaConfigTestStatus(userId, platformId, "testing");
-      await new Promise((resolve) => setTimeout(resolve, 1500 + Math.random() * 1e3));
-      await storage.upsertSocialMediaConfig({
-        userId,
-        platformId,
-        isEnabled: true,
-        apiKey: apiKey.trim(),
-        testStatus: "connected",
-        testError: null,
-        lastTestedAt: /* @__PURE__ */ new Date()
-      });
-      res.json({
-        success: true,
-        status: "connected",
-        message: `Successfully connected to ${platformId.charAt(0).toUpperCase() + platformId.slice(1)}`
-      });
-    } catch (error) {
-      console.error(`Error testing ${req.params.platformId} connection:`, error);
-      await storage.updateSocialMediaConfigTestStatus(req.user.id, req.params.platformId, "failed", "Internal server error");
-      res.status(500).json({
-        success: false,
-        status: "failed",
-        error: "Internal server error during connection test"
-      });
-    }
-  });
   app2.post("/api/subscription/upgrade", requireAuth, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -2153,6 +2152,269 @@ async function registerRoutes(app2) {
     } catch (error) {
       console.error("Search error:", error);
       res.status(500).json({ message: "Search failed" });
+    }
+  });
+  app2.get("/auth/facebook/api-key", (req, res) => {
+    const facebookAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/api-key/callback" : "http://localhost:5000/auth/facebook/api-key/callback")}&scope=pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish&response_type=code&state=${req.user?.id || "anonymous"}`;
+    res.redirect(facebookAuthUrl);
+  });
+  app2.get("/auth/facebook/api-key/callback", async (req, res) => {
+    try {
+      const { code, state } = req.query;
+      if (!code) {
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                window.opener.postMessage({
+                  type: 'FACEBOOK_OAUTH_ERROR',
+                  error: 'Authorization code not received from Facebook'
+                }, '*');
+                window.close();
+              </script>
+            </body>
+          </html>
+        `);
+      }
+      const tokenResponse = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&redirect_uri=${encodeURIComponent(process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/api-key/callback" : "http://localhost:5000/auth/facebook/api-key/callback")}&code=${code}`);
+      const tokenData = await tokenResponse.json();
+      if (tokenData.error) {
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                window.opener.postMessage({
+                  type: 'FACEBOOK_OAUTH_ERROR',
+                  error: 'Failed to exchange code for access token: ${tokenData.error.message}'
+                }, '*');
+                window.close();
+              </script>
+            </body>
+          </html>
+        `);
+      }
+      const accessToken = tokenData.access_token;
+      if (req.session) {
+        req.session.facebookApiKey = accessToken;
+      }
+      res.send(`
+        <html>
+          <body>
+            <script>
+              window.opener.postMessage({
+                type: 'FACEBOOK_OAUTH_SUCCESS',
+                apiKey: '${accessToken}'
+              }, '*');
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Facebook OAuth error:", error);
+      res.send(`
+        <html>
+          <body>
+            <script>
+              window.opener.postMessage({
+                type: 'FACEBOOK_OAUTH_ERROR',
+                error: 'Internal server error during OAuth process'
+              }, '*');
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    }
+  });
+  app2.get("/api/facebook-oauth-result", (req, res) => {
+    if (req.session?.facebookApiKey) {
+      const apiKey = req.session.facebookApiKey;
+      delete req.session.facebookApiKey;
+      res.json({ apiKey });
+    } else {
+      res.status(404).json({ message: "No Facebook API key found" });
+    }
+  });
+  app2.get("/auth/linkedin/api-key", (req, res) => {
+    const linkedinAuthUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/api-key/callback" : "http://localhost:5000/auth/linkedin/api-key/callback")}&scope=openid%20profile%20email%20w_member_social&state=${req.user?.id || "anonymous"}`;
+    res.redirect(linkedinAuthUrl);
+  });
+  app2.get("/auth/linkedin/api-key/callback", async (req, res) => {
+    try {
+      const { code, state } = req.query;
+      if (!code) {
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                window.opener.postMessage({
+                  type: 'LINKEDIN_OAUTH_ERROR',
+                  error: 'Authorization code not received from LinkedIn'
+                }, '*');
+                window.close();
+              </script>
+            </body>
+          </html>
+        `);
+      }
+      const tokenResponse = await fetch(`https://www.linkedin.com/oauth/v2/accessToken`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          client_id: process.env.LINKEDIN_CLIENT_ID,
+          client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+          redirect_uri: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/api-key/callback" : "http://localhost:5000/auth/linkedin/api-key/callback"
+        })
+      });
+      const tokenData = await tokenResponse.json();
+      if (tokenData.error) {
+        return res.send(`
+          <html>
+            <body>
+              <script>
+                window.opener.postMessage({
+                  type: 'LINKEDIN_OAUTH_ERROR',
+                  error: 'Failed to exchange code for access token: ${tokenData.error_description || tokenData.error}'
+                }, '*');
+                window.close();
+              </script>
+            </body>
+          </html>
+        `);
+      }
+      const accessToken = tokenData.access_token;
+      if (req.session) {
+        req.session.linkedinApiKey = accessToken;
+      }
+      res.send(`
+        <html>
+          <body>
+            <script>
+              window.opener.postMessage({
+                type: 'LINKEDIN_OAUTH_SUCCESS',
+                apiKey: '${accessToken}'
+              }, '*');
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("LinkedIn OAuth error:", error);
+      res.send(`
+        <html>
+          <body>
+            <script>
+              window.opener.postMessage({
+                type: 'LINKEDIN_OAUTH_ERROR',
+                error: 'Internal server error during OAuth process'
+              }, '*');
+              window.close();
+            </script>
+          </body>
+        </html>
+      `);
+    }
+  });
+  app2.get("/api/linkedin-oauth-result", (req, res) => {
+    if (req.session?.linkedinApiKey) {
+      const apiKey = req.session.linkedinApiKey;
+      delete req.session.linkedinApiKey;
+      res.json({ apiKey });
+    } else {
+      res.status(404).json({ message: "No LinkedIn API key found" });
+    }
+  });
+  app2.post("/api/social-media-configs/:platformId/test", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { platformId } = req.params;
+      const { apiKey } = req.body;
+      console.log(`Testing ${platformId} connection for user ${userId}`);
+      if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length === 0) {
+        await storage.updateSocialMediaConfigTestStatus(userId, platformId, "failed", "API key is required for testing");
+        return res.status(400).json({
+          success: false,
+          error: "API key is required for testing",
+          status: "failed"
+        });
+      }
+      await storage.updateSocialMediaConfigTestStatus(userId, platformId, "testing");
+      let testResult = { success: false, error: "Platform not supported" };
+      if (platformId === "facebook") {
+        try {
+          const response = await fetch(`https://graph.facebook.com/v18.0/me?access_token=${apiKey}&fields=id,name,email`);
+          const data = await response.json();
+          if (data.error) {
+            testResult = {
+              success: false,
+              error: `Facebook API Error: ${data.error.message} (Code: ${data.error.code})`
+            };
+          } else if (data.id) {
+            const pagesResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${apiKey}`);
+            const pagesData = await pagesResponse.json();
+            if (pagesData.error) {
+              testResult = {
+                success: false,
+                error: `Facebook Pages API Error: ${pagesData.error.message}`
+              };
+            } else {
+              testResult = {
+                success: true,
+                error: null,
+                userInfo: {
+                  name: data.name,
+                  id: data.id,
+                  pages: pagesData.data?.length || 0
+                }
+              };
+            }
+          } else {
+            testResult = { success: false, error: "Invalid Facebook API response" };
+          }
+        } catch (error) {
+          testResult = { success: false, error: `Facebook API connection failed: ${error.message}` };
+        }
+      } else {
+        const delay = Math.random() * 2e3 + 1e3;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        if (apiKey && apiKey.length > 10) {
+          testResult = { success: true, error: null };
+        } else {
+          testResult = { success: false, error: "Invalid API key format" };
+        }
+      }
+      if (testResult.success) {
+        await storage.upsertSocialMediaConfig({
+          userId,
+          platformId,
+          isEnabled: true,
+          apiKey: apiKey.trim(),
+          testStatus: "connected",
+          testError: null,
+          lastTestedAt: /* @__PURE__ */ new Date()
+        });
+        res.json({
+          success: true,
+          message: `${platformId} connection successful`,
+          userInfo: testResult.userInfo || null
+        });
+      } else {
+        await storage.updateSocialMediaConfigTestStatus(userId, platformId, "failed", testResult.error);
+        res.status(400).json({
+          success: false,
+          message: testResult.error || `${platformId} connection failed`
+        });
+      }
+    } catch (error) {
+      console.error(`Error testing ${req.params.platformId} connection:`, error);
+      await storage.updateSocialMediaConfigTestStatus(req.user.id, req.params.platformId, "failed", error.message);
+      res.status(500).json({ message: "Connection test failed" });
     }
   });
   app2.get("/api/notifications", requireAuth, async (req, res) => {
@@ -2574,11 +2836,22 @@ dotenv3.config();
 var app = express2();
 app.set("trust proxy", 1);
 app.use(cors({
-  origin: "https://postme-ai-frontend-2d76778b4014.herokuapp.com",
+  //origin: "https://postme-ai-frontend-2d76778b4014.herokuapp.com", 
+  origin: "https://www.postmeai.com",
   credentials: true
 }));
 app.use(express2.json({ limit: "10mb" }));
 app.use(express2.urlencoded({ extended: false, limit: "10mb" }));
+setupAuth(app);
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.linkedin.com https://api.linkedin.com https://www.facebook.com; frame-src 'self' https://accounts.google.com https://www.linkedin.com https://www.facebook.com; form-action 'self' https://accounts.google.com https://www.linkedin.com https://www.facebook.com;"
+  );
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  next();
+});
 app.use((req, res, next) => {
   const start = Date.now();
   const path2 = req.path;

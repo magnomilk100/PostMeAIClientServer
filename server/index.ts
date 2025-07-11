@@ -28,6 +28,24 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 setupAuth(app);
 
 
+// Add security headers but allow OAuth connections
+app.use((req, res, next) => {
+  // Allow OAuth connections to Google, LinkedIn, and Facebook
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.linkedin.com https://api.linkedin.com https://www.facebook.com; " +
+    "frame-src 'self' https://accounts.google.com https://www.linkedin.com https://www.facebook.com; " +
+    "form-action 'self' https://accounts.google.com https://www.linkedin.com https://www.facebook.com;"
+  );
+  
+  // Allow OAuth redirects
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -62,7 +62,12 @@ export default function Login() {
           title: "Success",
           description: "You have been logged in successfully!",
         });
-        setLocation("/");
+        // Add a slight delay to ensure auth state updates
+        setTimeout(() => {
+          setLocation("/");
+          // Force page refresh to ensure auth state is properly loaded
+          window.location.reload();
+        }, 100);
       },
       onError: (error: any) => {
         toast({
@@ -81,7 +86,12 @@ export default function Login() {
           title: "Success",
           description: "Account created successfully! You are now logged in.",
         });
-        setLocation("/");
+        // Add a slight delay to ensure auth state updates
+        setTimeout(() => {
+          setLocation("/");
+          // Force page refresh to ensure auth state is properly loaded
+          window.location.reload();
+        }, 100);
       },
       onError: (error: any) => {
         toast({
@@ -100,18 +110,21 @@ export default function Login() {
   const getAuthProviders = () => {
     const lastMethod = getLastAuthMethod();
     const providers = [
-      { id: "facebook", name: "Facebook", icon: FaFacebook, color: "#1877F2", url: "/auth/facebook" },
       { id: "google", name: "Google", icon: FaGoogle, color: "#DB4437", url: "/auth/google" },
+      { id: "facebook", name: "Facebook", icon: FaFacebook, color: "#1877F2", url: "/auth/facebook" },
       { id: "linkedin", name: "LinkedIn", icon: FaLinkedin, color: "#0A66C2", url: "/auth/linkedin" },
       { id: "github", name: "GitHub", icon: FaGithub, color: "#333333", url: "/auth/github" },
       { id: "local", name: "Email & Password", icon: null, color: "#6366F1", url: null },
     ];
 
-    // Move last used method to the top
-    const lastProvider = providers.find(p => p.id === lastMethod);
-    const otherProviders = providers.filter(p => p.id !== lastMethod);
+    // Always prioritize Google unless user specifically used another method last
+    if (lastMethod !== "google") {
+      const lastProvider = providers.find(p => p.id === lastMethod);
+      const otherProviders = providers.filter(p => p.id !== lastMethod);
+      return lastProvider ? [lastProvider, ...otherProviders] : providers;
+    }
     
-    return lastProvider ? [lastProvider, ...otherProviders] : providers;
+    return providers;
   };
 
   return (
@@ -123,10 +136,61 @@ export default function Login() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* OAuth Providers */}
+            {/* Primary OAuth Methods */}
             <div className="space-y-3">
-              <p className="text-sm text-gray-600 text-center">Choose your preferred sign-in method:</p>
-              {getAuthProviders().map((provider) => {
+              <p className="text-sm text-gray-600 text-center">Quick & secure sign-in:</p>
+              
+              {/* Google OAuth */}
+              <a href="/auth/google" className="block w-full">
+                <Button
+                  variant="outline"
+                  className="w-full justify-center bg-white hover:bg-gray-50 border-2 border-gray-300 text-gray-700 font-medium py-3"
+                  type="button"
+                >
+                  <FaGoogle className="mr-3 w-5 h-5 text-[#DB4437]" />
+                  Continue with Google
+                </Button>
+              </a>
+              {/* Facebook OAuth */}
+              <a href="/auth/facebook" className="block w-full">
+                <Button
+                  variant="outline"
+                  className="w-full justify-center bg-[#1877F2] hover:bg-[#166FE5] border-2 border-[#1877F2] text-white font-medium py-3"
+                  type="button"
+                >
+                  <FaFacebook className="mr-3 w-5 h-5 text-white" />
+                  Continue with Facebook
+                </Button>
+              </a>
+              {/* LinkedIn OAuth */}
+              <Button
+                variant="outline"
+                className="w-full justify-center bg-[#0A66C2] hover:bg-[#084A8A] border-2 border-[#0A66C2] text-white font-medium py-3"
+                type="button"
+                onClick={() => {
+                  const popup = window.open(
+                    '/auth/linkedin',
+                    'linkedin-auth',
+                    'width=500,height=600,scrollbars=yes,resizable=yes'
+                  );
+                  
+                  const checkClosed = setInterval(() => {
+                    if (popup?.closed) {
+                      clearInterval(checkClosed);
+                      window.location.reload();
+                    }
+                  }, 1000);
+                }}
+              >
+                <FaLinkedin className="mr-3 w-5 h-5 text-white" />
+                Continue with LinkedIn
+              </Button>
+            </div>
+            <Separator />
+            {/* Other OAuth Providers */}
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600 text-center">Or choose another sign-in method:</p>
+              {getAuthProviders().slice(1).filter(p => p.id !== "facebook" && p.id !== "linkedin").map((provider) => {
                 if (provider.id === "local") {
                   return (
                     <Button
@@ -147,19 +211,20 @@ export default function Login() {
 
                 const Icon = provider.icon!;
                 return (
-                  <Button
-                    key={provider.id}
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => window.location.href = provider.url!}
-                    style={{ borderColor: provider.color, color: provider.color }}
-                  >
-                    <Icon className="mr-2 w-4 h-4" />
-                    Continue with {provider.name}
-                    {getLastAuthMethod() === provider.id && (
-                      <span className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Last used</span>
-                    )}
-                  </Button>
+                  <a key={provider.id} href={provider.url!} className="block w-full">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      type="button"
+                      style={{ borderColor: provider.color, color: provider.color }}
+                    >
+                      <Icon className="mr-2 w-4 h-4" />
+                      Continue with {provider.name}
+                      {getLastAuthMethod() === provider.id && (
+                        <span className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Last used</span>
+                      )}
+                    </Button>
+                  </a>
                 );
               })}
             </div>

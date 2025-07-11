@@ -76,6 +76,13 @@ export default function ManualPostStep1() {
     }
   }, [existingData]);
 
+  // Set default platforms (all platforms selected) if not already set
+  useEffect(() => {
+    if (!wizardData.platforms || wizardData.platforms.length === 0) {
+      const allPlatforms = ["facebook", "instagram", "linkedin", "tiktok", "youtube", "discord", "telegram"];
+      updateWizardData({ platforms: allPlatforms });
+    }
+  }, []);
   const generateAIContent = async () => {
     if (!aiSubject.trim()) {
       toast({

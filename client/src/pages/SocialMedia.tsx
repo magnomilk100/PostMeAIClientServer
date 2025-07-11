@@ -247,6 +247,216 @@ export default function SocialMedia() {
     });
   };
 
+  const handleFacebookOAuth = () => {
+    // Check if Facebook is enabled
+    if (!selectedPlatforms.facebook) {
+      toast({
+        title: "Facebook Not Enabled",
+        description: "Please enable Facebook first by checking the checkbox.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Open Facebook OAuth2 flow in a popup window
+    const width = 600;
+    const height = 600;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    const popup = window.open(
+      '/auth/facebook/api-key',
+      'facebook-oauth',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+    if (!popup) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Listen for OAuth completion
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkClosed);
+        // Check if we received a token from the popup
+        checkFacebookOAuthResult();
+      }
+    }, 1000);
+    // Listen for messages from the popup
+    const messageHandler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'FACEBOOK_OAUTH_SUCCESS') {
+        popup?.close();
+        clearInterval(checkClosed);
+        
+        // Set the API key from OAuth
+        setCurrentApiKeys(prev => ({
+          ...prev,
+          facebook: event.data.apiKey
+        }));
+        
+        toast({
+          title: "Facebook Connected",
+          description: "Facebook API key has been automatically configured!",
+        });
+        
+        window.removeEventListener('message', messageHandler);
+      } else if (event.data.type === 'FACEBOOK_OAUTH_ERROR') {
+        popup?.close();
+        clearInterval(checkClosed);
+        
+        let errorMessage = event.data.error || "Failed to connect with Facebook";
+        
+        // Provide more specific error messages
+        if (errorMessage.includes('App not active')) {
+          errorMessage = "Facebook app is not active. Please configure your Facebook app settings and enable it for public use.";
+        } else if (errorMessage.includes('redirect_uri')) {
+          errorMessage = "Redirect URL not configured. Please add the redirect URL to your Facebook app settings.";
+        }
+        
+        toast({
+          title: "Facebook Connection Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        window.removeEventListener('message', messageHandler);
+      }
+    };
+    window.addEventListener('message', messageHandler);
+  };
+  const checkFacebookOAuthResult = async () => {
+    try {
+      const response = await fetch('/api/facebook-oauth-result', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.apiKey) {
+          setCurrentApiKeys(prev => ({
+            ...prev,
+            facebook: data.apiKey
+          }));
+          
+          toast({
+            title: "Facebook Connected",
+            description: "Facebook API key has been automatically configured!",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking Facebook OAuth result:', error);
+    }
+  };
+  const handleLinkedInOAuth = () => {
+    // Check if LinkedIn is enabled
+    if (!selectedPlatforms.linkedin) {
+      toast({
+        title: "LinkedIn Not Enabled",
+        description: "Please enable LinkedIn first by checking the checkbox.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Open LinkedIn OAuth2 flow in a popup window
+    const width = 600;
+    const height = 600;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    const popup = window.open(
+      '/auth/linkedin/api-key',
+      'linkedin-oauth',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+    if (!popup) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Listen for OAuth completion
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkClosed);
+        // Check if we received a token from the popup
+        checkLinkedInOAuthResult();
+      }
+    }, 1000);
+    // Listen for messages from the popup
+    const messageHandler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'LINKEDIN_OAUTH_SUCCESS') {
+        popup?.close();
+        clearInterval(checkClosed);
+        
+        // Set the API key from OAuth
+        setCurrentApiKeys(prev => ({
+          ...prev,
+          linkedin: event.data.apiKey
+        }));
+        
+        toast({
+          title: "LinkedIn Connected",
+          description: "LinkedIn API key has been automatically configured!",
+        });
+        
+        window.removeEventListener('message', messageHandler);
+      } else if (event.data.type === 'LINKEDIN_OAUTH_ERROR') {
+        popup?.close();
+        clearInterval(checkClosed);
+        
+        let errorMessage = event.data.error || "Failed to connect with LinkedIn";
+        
+        // Provide more specific error messages
+        if (errorMessage.includes('App not approved')) {
+          errorMessage = "LinkedIn app is not approved. Please submit your app for review or test with authorized test users.";
+        } else if (errorMessage.includes('redirect_uri')) {
+          errorMessage = "Redirect URL not configured. Please add the redirect URL to your LinkedIn app settings.";
+        }
+        
+        toast({
+          title: "LinkedIn Connection Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        window.removeEventListener('message', messageHandler);
+      }
+    };
+    window.addEventListener('message', messageHandler);
+  };
+  const checkLinkedInOAuthResult = async () => {
+    try {
+      const response = await fetch('/api/linkedin-oauth-result', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.apiKey) {
+          setCurrentApiKeys(prev => ({
+            ...prev,
+            linkedin: data.apiKey
+          }));
+          
+          toast({
+            title: "LinkedIn Connected",
+            description: "LinkedIn API key has been automatically configured!",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking LinkedIn OAuth result:', error);
+    }
+  };
   return (
     <div className="page-content">
       <h1 className="text-3xl font-bold text-standard mb-8">{t('socialMedia.title')}</h1>
@@ -321,32 +531,146 @@ export default function SocialMedia() {
                       </div>
                     </div>
 
-                    {/* API Key Input */}
-                    <div className="flex items-center space-x-2 min-w-0 flex-1">
-                      <div className="relative flex-1">
-                        <Input
-                          type={visibleKeys[platform.id] ? "text" : "password"}
-                          placeholder={t('socialMedia.enterApiKey', { platform: platform.name })}
-                          value={currentApiKeys[platform.id] || ""}
-                          onChange={(e) => handleApiKeyChange(platform.id, e.target.value)}
-                          className="pr-10"
-                          disabled={!selectedPlatforms[platform.id]}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
-                          onClick={() => toggleVisibility(platform.id)}
-                          disabled={!selectedPlatforms[platform.id]}
-                        >
-                          {visibleKeys[platform.id] ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </Button>
+                    {/* Facebook OAuth2 + Manual API Key */}
+                    {platform.id === "facebook" ? (
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <div className="space-y-3 flex-1">
+                          {/* OAuth2 Option */}
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleFacebookOAuth()}
+                                disabled={!selectedPlatforms[platform.id]}
+                                className="flex items-center space-x-2 bg-[#1877F2] hover:bg-[#166FE5] text-white border-[#1877F2] hover:border-[#166FE5]"
+                              >
+                                <SiFacebook className="w-4 h-4" />
+                                <span>Connect with Facebook</span>
+                              </Button>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Recommended</span>
+                            </div>
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+                              <p className="text-xs text-amber-700 dark:text-amber-300">
+                                <strong>Setup Required:</strong> Facebook OAuth2 requires app configuration. 
+                                Add this redirect URL to your Facebook App settings: <br/>
+                                <code className="bg-amber-100 dark:bg-amber-800 px-1 rounded text-xs">
+                                  {window.location.origin}/auth/facebook/api-key/callback
+                                </code>
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Manual API Key Option */}
+                          <div className="relative flex-1">
+                            <Input
+                              type={visibleKeys[platform.id] ? "text" : "password"}
+                              placeholder="Or enter your Facebook API Key manually"
+                              value={currentApiKeys[platform.id] || ""}
+                              onChange={(e) => handleApiKeyChange(platform.id, e.target.value)}
+                              className="pr-10"
+                              disabled={!selectedPlatforms[platform.id]}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                              onClick={() => toggleVisibility(platform.id)}
+                              disabled={!selectedPlatforms[platform.id]}
+                            >
+                              {visibleKeys[platform.id] ? (
+                                <EyeOff className="w-4 h-4" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : platform.id === "linkedin" ? (
+                      /* LinkedIn OAuth2 + Manual API Key */
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <div className="space-y-3 flex-1">
+                          {/* OAuth2 Option */}
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleLinkedInOAuth()}
+                                disabled={!selectedPlatforms[platform.id]}
+                                className="flex items-center space-x-2 bg-[#0A66C2] hover:bg-[#084A8A] text-white border-[#0A66C2] hover:border-[#084A8A]"
+                              >
+                                <SiLinkedin className="w-4 h-4" />
+                                <span>Connect with LinkedIn</span>
+                              </Button>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Recommended</span>
+                            </div>
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+                              <p className="text-xs text-amber-700 dark:text-amber-300">
+                                <strong>Setup Required:</strong> LinkedIn OAuth2 requires app configuration. 
+                                Add this redirect URL to your LinkedIn App settings: <br/>
+                                <code className="bg-amber-100 dark:bg-amber-800 px-1 rounded text-xs">
+                                  {window.location.origin}/auth/linkedin/api-key/callback
+                                </code>
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Manual API Key Option */}
+                          <div className="relative flex-1">
+                            <Input
+                              type={visibleKeys[platform.id] ? "text" : "password"}
+                              placeholder="Or enter your LinkedIn API Key manually"
+                              value={currentApiKeys[platform.id] || ""}
+                              onChange={(e) => handleApiKeyChange(platform.id, e.target.value)}
+                              className="pr-10"
+                              disabled={!selectedPlatforms[platform.id]}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                              onClick={() => toggleVisibility(platform.id)}
+                              disabled={!selectedPlatforms[platform.id]}
+                            >
+                              {visibleKeys[platform.id] ? (
+                                <EyeOff className="w-4 h-4" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Other platforms - existing API Key Input */
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <div className="relative flex-1">
+                          <Input
+                            type={visibleKeys[platform.id] ? "text" : "password"}
+                            placeholder={t('socialMedia.enterApiKey', { platform: platform.name })}
+                            value={currentApiKeys[platform.id] || ""}
+                            onChange={(e) => handleApiKeyChange(platform.id, e.target.value)}
+                            className="pr-10"
+                            disabled={!selectedPlatforms[platform.id]}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                            onClick={() => toggleVisibility(platform.id)}
+                            disabled={!selectedPlatforms[platform.id]}
+                          >
+                            {visibleKeys[platform.id] ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Test Button */}
                     <div className="flex items-center space-x-2">
@@ -438,15 +762,30 @@ export default function SocialMedia() {
 
           {/* Help Section */}
           <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">Need help finding your API keys?</h4>
-            <div className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
-              <p>• <strong>Facebook:</strong> Visit Facebook Developers → Your App → Settings → Basic</p>
-              <p>• <strong>Instagram:</strong> Use Facebook Graph API with Instagram Basic Display</p>
-              <p>• <strong>LinkedIn:</strong> LinkedIn Developer Program → Your App → Auth</p>
-              <p>• <strong>TikTok:</strong> TikTok for Developers → Your App → Basic Info</p>
-              <p>• <strong>YouTube:</strong> Google Cloud Console → APIs & Services → Credentials</p>
-              <p>• <strong>Discord:</strong> Discord Developer Portal → Your App → Bot → Token</p>
-              <p>• <strong>Telegram:</strong> Contact @BotFather to create a bot and get token</p>
+            <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">Need help configuring social media platforms?</h4>
+            <div className="text-sm text-blue-800 dark:text-blue-300 space-y-2">
+              <div>
+                <p><strong>Facebook OAuth2 Setup:</strong></p>
+                <p className="ml-4">1. Go to Facebook Developers → Your App → Products → Facebook Login → Settings</p>
+                <p className="ml-4">2. Add redirect URL: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">{window.location.origin}/auth/facebook/api-key/callback</code></p>
+                <p className="ml-4">3. Enable app for public use in App Review</p>
+              </div>
+              <div>
+                <p><strong>LinkedIn OAuth2 Setup:</strong></p>
+                <p className="ml-4">1. Go to LinkedIn Developer Program → Your App → Auth</p>
+                <p className="ml-4">2. Add redirect URL: <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">{window.location.origin}/auth/linkedin/api-key/callback</code></p>
+                <p className="ml-4">3. Add required scopes: openid, profile, email, w_member_social</p>
+              </div>
+              <div>
+                <p><strong>Manual API Keys:</strong></p>
+                <p className="ml-4">• <strong>Facebook:</strong> Visit Facebook Developers → Your App → Settings → Basic</p>
+                <p className="ml-4">• <strong>Instagram:</strong> Use Facebook Graph API with Instagram Basic Display</p>
+                <p className="ml-4">• <strong>LinkedIn:</strong> LinkedIn Developer Program → Your App → Auth</p>
+                <p className="ml-4">• <strong>TikTok:</strong> TikTok for Developers → Your App → Basic Info</p>
+                <p className="ml-4">• <strong>YouTube:</strong> Google Cloud Console → APIs & Services → Credentials</p>
+                <p className="ml-4">• <strong>Discord:</strong> Discord Developer Portal → Your App → Bot → Token</p>
+                <p className="ml-4">• <strong>Telegram:</strong> Contact @BotFather to create a bot and get token</p>
+              </div>
             </div>
           </div>
         </div>

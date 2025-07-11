@@ -68,10 +68,13 @@ export function setupAuth(app: Express) {
 
   // Facebook strategy
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+    console.log('Facebook OAuth configured with App ID:', process.env.FACEBOOK_APP_ID);
+    console.log('Facebook callback URL:', process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/callback" : "http://localhost:5000/auth/facebook/callback");
+    
     passport.use(new FacebookStrategy({
       clientID: process.env.FACEBOOK_APP_ID,
       clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL: "/auth/facebook/callback",
+      callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/callback" : "http://localhost:5000/auth/facebook/callback",
       profileFields: ["id", "emails", "name", "picture.type(large)"]
     }, async (accessToken, refreshToken, profile, done) => {
       try {
@@ -128,26 +131,35 @@ export function setupAuth(app: Express) {
 
   // LinkedIn strategy
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+    console.log('LinkedIn OAuth configured with Client ID:', process.env.LINKEDIN_CLIENT_ID);
+    console.log('LinkedIn callback URL:', process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/callback" : "http://localhost:5000/auth/linkedin/callback");
+    
     passport.use(new LinkedInStrategy({
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: "/auth/linkedin/callback",
-      scope: ["r_emailaddress", "r_liteprofile"]
+      callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/callback" : "http://localhost:5000/auth/linkedin/callback",
+      scope: ["openid", "profile", "email"],
+      state: true
     }, async (accessToken, refreshToken, profile, done) => {
       try {
+        console.log('LinkedIn profile received:', JSON.stringify(profile, null, 2));
+        
         const userId = `linkedin_${profile.id}`;
         const user = await storage.upsertUser({
           id: userId,
-          email: profile.emails?.[0]?.value || null,
-          firstName: profile.name?.givenName || null,
-          lastName: profile.name?.familyName || null,
-          profileImageUrl: profile.photos?.[0]?.value || null,
+          email: profile.emails?.[0]?.value || profile.email || null,
+          firstName: profile.name?.givenName || profile.given_name || null,
+          lastName: profile.name?.familyName || profile.family_name || null,
+          profileImageUrl: profile.photos?.[0]?.value || profile.picture || null,
           authProvider: "linkedin",
           providerId: profile.id,
           lastAuthMethod: "linkedin",
         });
+        
+        console.log('LinkedIn user created/updated:', user);
         return done(null, user);
       } catch (error) {
+        console.error('LinkedIn authentication error:', error);
         return done(error);
       }
     }));

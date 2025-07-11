@@ -6,7 +6,6 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Layout from "@/components/Layout";
 import ManualPostStep1 from "@/components/wizard-steps/ManualPostStep1";
-import ManualPostStep2 from "@/components/wizard-steps/ManualPostStep2";
 import ManualPostStep3 from "@/components/wizard-steps/ManualPostStep3";
 import ManualPostStep4 from "@/components/wizard-steps/ManualPostStep4";
 import ManualPostStep5 from "@/components/wizard-steps/ManualPostStep5";
@@ -19,7 +18,6 @@ function WizardContent() {
 
   const stepTitles = [
     "Post Content",
-    "Social Media Platforms",
     "Image and Video Manipulation",
     "Links",
     "Schedule Configuration",
@@ -63,21 +61,8 @@ function WizardContent() {
       }
     }
 
-    // Validate Step 2 - Platforms
-    if (currentStep === 2) {
-      const platforms = wizardData.platforms || [];
-      if (platforms.length === 0) {
-        toast({
-          title: "Platform Selection Required",
-          description: "Please select at least one social media platform.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    // Validate Step 5 - Schedule configuration
-    if (currentStep === 5) {
+    // Validate Step 4 - Schedule configuration (was Step 5)
+    if (currentStep === 4) {
       if (!validateScheduleConfiguration()) {
         toast({
           title: "Schedule Required",
@@ -96,16 +81,14 @@ function WizardContent() {
       case 1:
         return <ManualPostStep1 />;
       case 2:
-        return <ManualPostStep2 />;
-      case 3:
         return <ManualPostStep3 />;
-      case 4:
+      case 3:
         return <ManualPostStep4 />;
-      case 5:
+      case 4:
         return <ManualPostStep5 />;
-      case 6:
+      case 5:
         return <ManualPostStep6 />;
-      case 7:
+      case 6:
         return <ManualPostStep7 />;
       default:
         return <ManualPostStep1 />;
@@ -204,7 +187,7 @@ function WizardContent() {
 
 export default function ManualPostWizard() {
   return (
-    <WizardProvider totalSteps={7}>
+    <WizardProvider totalSteps={6}>
       <WizardContent />
     </WizardProvider>
   );
