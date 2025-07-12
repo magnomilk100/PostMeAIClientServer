@@ -247,7 +247,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+
+// kick off the flow from CHAT GPT
+  // OAuth endpoints
+// — Kick off LinkedIn —
+app.get("/auth/linkedin", passport.authenticate("linkedin-oidc"));
+
+// — Custom callback so we can log err/user/info —
+  // — Custom LinkedIn callback (only one!) —
+// kick off the flow
+app.get("/auth/linkedin", passport.authenticate("linkedin-oidc"));
+
+// callback
+app.get(
+  "/auth/linkedin/callback",
+  passport.authenticate("linkedin-oidc", {
+    failureRedirect: "/login",
+    session: true,
+  }),
+  (req, res) => {
+    const url = process.env.FRONTEND_URL || "http://localhost:5000";
+    res.send(`
+      <html><body>
+      <script>
+        if (window.opener) {
+          window.opener.location.href = "${url}";
+          window.close();
+        } else {
+          window.location.href = "${url}";
+        }
+      </script>
+      </body></html>
+    `);
+  }
+);
+  /*
   app.get("/auth/linkedin", passport.authenticate("linkedin", { scope: ["openid", "profile", "email"] }));
+  //app.get("/auth/linkedin", passport.authenticate("linkedin", { scope: ["r_liteprofile", "r_emailaddress"] }));
   app.get("/auth/linkedin/callback", (req, res, next) => {
     console.log("LinkedIn OAuth callback hit with query:", req.query);
     passport.authenticate("linkedin", { failureRedirect: "/login" })(req, res, (err) => {
@@ -273,6 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
     });
   });
+*/
+
 
   app.get("/auth/github", passport.authenticate("github", { scope: ["user:email"] }));
   app.get("/auth/github/callback", passport.authenticate("github", { failureRedirect: "/login" }), (req, res) => {
