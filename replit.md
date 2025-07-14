@@ -912,7 +912,7 @@ Changelog:
   - **CHECKPOINT: Complete full-width layout with enhanced text readability across all major pages**
 - January 9, 2025. Google OAuth 2.0 authentication implementation:
   - Successfully configured Google OAuth 2.0 authentication with provided credentials (Client ID: 325510328084-p45i75oqqq95156rpi8vaeq1eca2q9lb.apps.googleusercontent.com)
-  - Updated callback URL configuration to support production deployment (https://postmeai.com/auth/google/callback)
+  - Updated callback URL configuration to support production deployment (https://www.postmeai.com/auth/google/callback)
   - Enhanced Login page to prominently feature Google Sign-In as the primary authentication method
   - Reorganized OAuth providers with Google at the top, followed by other social authentication options
   - Google OAuth now appears as a large, prominent button with clear "Continue with Google" messaging

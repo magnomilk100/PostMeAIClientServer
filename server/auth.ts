@@ -12,6 +12,8 @@ import cors from "cors";
 
 import { storage } from "./storage";
 import { pool } from "./db";
+import dotenv from "dotenv";
+dotenv.config();
 
 export function setupAuth(app: Express) {
   // ─── 1) CORS ───────────────────────────────────────────────────────────
@@ -72,7 +74,7 @@ export function setupAuth(app: Express) {
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     const FB_CB = process.env.FACEBOOK_CALLBACK_URL;
       //process.env.NODE_ENV === "production"
-      //  ? "https://postmeai.com/auth/facebook/callback"
+      //  ? "https://www.postmeai.com/auth/facebook/callback"
       //  : "http://localhost:5000/auth/facebook/callback";
     passport.use(
       new FacebookStrategy(
@@ -168,7 +170,7 @@ export function setupAuth(app: Express) {
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
     const LN_CB = process.env.LINKEDIN_CALLBACK_URL;
       //process.env.NODE_ENV === "production"
-      //  ? "https://postmeai.com/auth/linkedin/callback"
+      //  ? "https://www.postmeai.com/auth/linkedin/callback"
       //  : "http://localhost:5000/auth/linkedin/callback";
 
     passport.use(

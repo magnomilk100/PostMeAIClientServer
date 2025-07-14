@@ -8,6 +8,8 @@ import { setupAuth, requireAuth, optionalAuth } from "./auth";
 import passport from "passport";
 import multer from "multer";
 import { generateVerificationToken, sendVerificationEmail, sendWelcomeEmail } from "./email";
+import dotenv from "dotenv";
+dotenv.config();
 
 const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
@@ -271,7 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
               <h1 style="color: #e74c3c;">Invalid Verification Link</h1>
               <p>The verification link is invalid or missing.</p>
-              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+              <a href="${process.env.POSTMEAI_FE_URL}" 
                  style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                 Go to PostMeAI
               </a>
@@ -289,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <h1 style="color: #e74c3c;">Verification Failed</h1>
               <p>The verification link is invalid or has expired.</p>
               <p>Please request a new verification email.</p>
-              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+              <a href="${process.env.POSTMEAI_FE_URL}" 
                  style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                 Go to PostMeAI
               </a>
@@ -314,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <h1 style="color: #27ae60;">Email Verified Successfully!</h1>
             <p>Welcome to PostMeAI, ${user.firstName || 'User'}!</p>
             <p>Your account is now active and you can start creating amazing content.</p>
-            <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+            <a href="${process.env.POSTMEAI_FE_URL}" 
                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
               Start Creating Content
             </a>
@@ -328,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
             <h1 style="color: #e74c3c;">Verification Error</h1>
             <p>An error occurred during email verification.</p>
-            <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+            <a href="${process.env.POSTMEAI_FE_URL}" 
                style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
               Go to PostMeAI
             </a>
@@ -1463,7 +1465,7 @@ app.get(
   app.get('/auth/facebook/api-key', (req, res) => {
     const facebookAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
       `client_id=${process.env.FACEBOOK_APP_ID}&` +
-      `redirect_uri=${encodeURIComponent(process.env.NODE_ENV === 'production' ? 'https://postmeai.com/auth/facebook/api-key/callback' : 'http://localhost:5000/auth/facebook/api-key/callback')}&` +
+      `redirect_uri=${encodeURIComponent(process.env.POSTMEAI_FE_URL + '/auth/facebook/api-key/callback')}&` +
       `scope=pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish&` +
       `response_type=code&` +
       `state=${req.user?.id || 'anonymous'}`;
@@ -1492,7 +1494,7 @@ app.get(
       const tokenResponse = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?` +
         `client_id=${process.env.FACEBOOK_APP_ID}&` +
         `client_secret=${process.env.FACEBOOK_APP_SECRET}&` +
-        `redirect_uri=${encodeURIComponent(process.env.NODE_ENV === 'production' ? 'https://postmeai.com/auth/facebook/api-key/callback' : 'http://localhost:5000/auth/facebook/api-key/callback')}&` +
+        `redirect_uri=${encodeURIComponent(process.env.POSTMEAI_FE_URL + '/auth/facebook/api-key/callback')}&` +
         `code=${code}`);
       const tokenData = await tokenResponse.json();
       
@@ -1563,7 +1565,7 @@ app.get(
     const linkedinAuthUrl = `https://www.linkedin.com/oauth/v2/authorization?` +
       `response_type=code&` +
       `client_id=${process.env.LINKEDIN_CLIENT_ID}&` +
-      `redirect_uri=${encodeURIComponent(process.env.NODE_ENV === 'production' ? 'https://postmeai.com/auth/linkedin/api-key/callback' : 'http://localhost:5000/auth/linkedin/api-key/callback')}&` +
+      `redirect_uri=${encodeURIComponent(process.env.POSTMEAI_FE_URL + '/auth/linkedin/api-key/callback')}&` +
       `scope=openid%20profile%20email%20w_member_social&` +
       `state=${req.user?.id || 'anonymous'}`;
     res.redirect(linkedinAuthUrl);
@@ -1598,7 +1600,7 @@ app.get(
           code: code as string,
           client_id: process.env.LINKEDIN_CLIENT_ID!,
           client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
-          redirect_uri: process.env.NODE_ENV === 'production' ? 'https://postmeai.com/auth/linkedin/api-key/callback' : 'http://localhost:5000/auth/linkedin/api-key/callback'
+          redirect_uri: process.env.POSTMEAI_FE_URL + '/auth/linkedin/api-key/callback'
         })
       });
       const tokenData = await tokenResponse.json();

@@ -12,8 +12,8 @@ const app = express();
 app.set("trust proxy", 1);
 // before your routes, add: by Magno CHATGPT too
 app.use(cors({
-  //origin: "https://postme-ai-frontend-2d76778b4014.herokuapp.com", 
-  origin: "https://www.postmeai.com",   
+  //origin: "https://www.postme-ai-frontend-2d76778b4014.herokuapp.com", 
+  origin: process.env.POSTMEAI_FE_URL,   
   credentials: true,
 }));
 

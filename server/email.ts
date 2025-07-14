@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 import { randomBytes } from 'crypto';
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Email configuration - Common SMTP settings:
 // Gmail: smtp.gmail.com:587 (TLS) or smtp.gmail.com:465 (SSL)
@@ -12,7 +15,7 @@ const smtpConfig = {
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: process.env.SMTP_SECURE === 'true' || parseInt(process.env.SMTP_PORT || '587') === 465, // true for 465, false for other ports
   auth: {
-    user: process.env.EMAIL_USER || 'contact@postmeai.com',
+    user: process.env.EMAIL_USER || process.env.POSTMEAI_EMAIL,
     pass: process.env.EMAIL_PASS || 'your-password'
   },
   connectionTimeout: 15000, // 15 seconds
@@ -38,10 +41,10 @@ export function generateVerificationToken(): string {
 
 export async function sendVerificationEmail(email: string, token: string): Promise<boolean> {
   try {
-    const verificationUrl = `${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}/auth/verify-email?token=${token}`;
+    const verificationUrl = `${process.env.POSTMEAI_FE_URL}/auth/verify-email?token=${token}`;
     
     const mailOptions = {
-      from: process.env.EMAIL_USER || 'PostMeAI <contact@postmeai.com>',
+      from: process.env.EMAIL_USER || 'PostMeAI <' + process.env.POSTMEAI_EMAIL + '>',
       to: email,
       subject: 'Verify Your PostMeAI Account',
       html: `
@@ -98,7 +101,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
 export async function sendWelcomeEmail(email: string, firstName?: string): Promise<boolean> {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_USER || 'PostMeAI <contact@postmeai.com>',
+      from: process.env.EMAIL_USER || 'PostMeAI <' + process.env.POSTMEAI_EMAIL + '>',
       to: email,
       subject: 'Welcome to PostMeAI - Your Account is Verified!',
       html: `
@@ -126,7 +129,7 @@ export async function sendWelcomeEmail(email: string, firstName?: string): Promi
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+              <a href="${process.env.POSTMEAI_FE_URL}" 
                  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                         color: white; 
                         padding: 15px 30px; 
@@ -140,7 +143,7 @@ export async function sendWelcomeEmail(email: string, firstName?: string): Promi
             </div>
             
             <p style="color: #999; font-size: 12px; text-align: center;">
-              Need help? Check out our documentation or contact support at support@postmeai.com
+              Need help? Check out our documentation or contact support at ${process.env.POSTMEAI_EMAIL}
             </p>
           </div>
         </div>

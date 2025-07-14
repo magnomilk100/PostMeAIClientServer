@@ -4,6 +4,8 @@ import fs from "fs";
 import path from "path";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
+import dotenv from "dotenv";
+dotenv.config();
 
 // simple logger that works in prod or dev
 export function log(message: string, source = "express") {
