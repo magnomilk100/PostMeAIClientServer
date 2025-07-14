@@ -29,12 +29,14 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
 
 export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
+  const [, navigate] = useLocation();
   
   // Profile settings state
   const [profileData, setProfileData] = useState({
@@ -965,7 +967,11 @@ export default function Settings() {
                   <Button variant="outline">
                     Download My Data
                   </Button>
-                  <Button variant="destructive">
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => navigate("/user-data-deletion")}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
                     Delete Account
                   </Button>
                   <p className="text-sm text-gray-500">

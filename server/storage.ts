@@ -111,6 +111,21 @@ export interface IStorage {
   // Schedule Execution operations
   createScheduleExecution(execution: InsertScheduleExecution): Promise<ScheduleExecution>;
   getScheduleExecutionsByScheduleId(scheduleId: number, userId: string): Promise<ScheduleExecution[]>;
+
+  // User data deletion operations
+  getPostsByUserId(userId: string): Promise<Post[]>;
+  deleteUser(userId: string): Promise<boolean>;
+  deletePost(id: number, userId: string): Promise<boolean>;
+  deletePublishedPostsByPostId(postId: number): Promise<boolean>;
+  deleteGeneratedContentByPostId(postId: number): Promise<boolean>;
+  deleteScheduleExecutions(scheduleId: number): Promise<boolean>;
+  deleteSocialMediaConfigs(userId: string): Promise<boolean>;
+  deletePaymentTransactions(userId: string): Promise<boolean>;
+
+  // Email verification operations
+  setVerificationToken(userId: string, token: string): Promise<void>;
+  verifyEmail(token: string): Promise<User | null>;
+  getUserByVerificationToken(token: string): Promise<User | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -156,6 +171,7 @@ export class DatabaseStorage implements IStorage {
         lastAuthMethod: "local",
         credits: 100, // Give new users 100 credits to start
         subscriptionStatus: "inactive",
+        emailVerified: false, // New users start as unverified
       })
       .returning();
     
@@ -661,6 +677,116 @@ export class DatabaseStorage implements IStorage {
       .from(scheduleExecutions)
       .where(and(eq(scheduleExecutions.scheduleId, scheduleId), eq(scheduleExecutions.userId, userId)))
       .orderBy(desc(scheduleExecutions.executedAt));
+  }
+
+  // User data deletion operations
+  async getPostsByUserId(userId: string): Promise<Post[]> {
+    return await db
+      .select()
+      .from(posts)
+      .where(eq(posts.userId, userId));
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    const result = await db
+      .delete(users)
+      .where(eq(users.id, userId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deletePost(id: number, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(posts)
+      .where(and(eq(posts.id, id), eq(posts.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deletePublishedPostsByPostId(postId: number): Promise<boolean> {
+    const result = await db
+      .delete(publishedPosts)
+      .where(eq(publishedPosts.postId, postId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deleteGeneratedContentByPostId(postId: number): Promise<boolean> {
+    const result = await db
+      .delete(generatedContent)
+      .where(eq(generatedContent.postId, postId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deleteScheduleExecutions(scheduleId: number): Promise<boolean> {
+    const result = await db
+      .delete(scheduleExecutions)
+      .where(eq(scheduleExecutions.scheduleId, scheduleId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deleteSocialMediaConfigs(userId: string): Promise<boolean> {
+    const result = await db
+      .delete(socialMediaConfigs)
+      .where(eq(socialMediaConfigs.userId, userId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deletePaymentTransactions(userId: string): Promise<boolean> {
+    const result = await db
+      .delete(paymentTransactions)
+      .where(eq(paymentTransactions.userId, userId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Email verification operations
+  async setVerificationToken(userId: string, token: string): Promise<void> {
+    const expiryTime = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+    await db.update(users)
+      .set({ 
+        verificationToken: token,
+        verificationTokenExpiry: expiryTime
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async verifyEmail(token: string): Promise<User | null> {
+    try {
+      const [user] = await db.select()
+        .from(users)
+        .where(eq(users.verificationToken, token));
+      
+      if (!user) return null;
+      
+      // Check if token is expired
+      if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
+        return null;
+      }
+      
+      // Update user as verified and clear token
+      await db.update(users)
+        .set({
+          emailVerified: true,
+          verificationToken: null,
+          verificationTokenExpiry: null
+        })
+        .where(eq(users.id, user.id));
+      
+      return { ...user, emailVerified: true };
+    } catch (error) {
+      console.error('Error verifying email:', error);
+      return null;
+    }
+  }
+
+  async getUserByVerificationToken(token: string): Promise<User | null> {
+    try {
+      const [user] = await db.select()
+        .from(users)
+        .where(eq(users.verificationToken, token));
+      
+      return user || null;
+    } catch (error) {
+      console.error('Error getting user by verification token:', error);
+      return null;
+    }
   }
 }
 

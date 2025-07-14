@@ -7,6 +7,7 @@ import { z } from "zod";
 import { setupAuth, requireAuth, optionalAuth } from "./auth";
 import passport from "passport";
 import multer from "multer";
+import { generateVerificationToken, sendVerificationEmail, sendWelcomeEmail } from "./email";
 
 const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
@@ -170,7 +171,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
     try {
+      console.log('Registration request body:', req.body);
       const userData = localAuthSchema.parse(req.body);
+      console.log('Parsed userData:', userData);
+      
       const existingUser = await storage.getUserByEmail(userData.email);
       
       if (existingUser) {
@@ -178,38 +182,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const user = await storage.createLocalUser(userData);
-      req.login(user, (err) => {
-        if (err) {
-          return res.status(500).json({ message: "Login error after registration" });
-        }
-        res.json({ user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName } });
+      
+      // Generate verification token and send email (non-blocking)
+      const verificationToken = generateVerificationToken();
+      
+      // Set verification token in background
+      storage.setVerificationToken(user.id, verificationToken).then(() => {
+        console.log('Verification token set for user:', user.email);
+        
+        // Try to send email (non-blocking, won't fail registration if email fails)
+        sendVerificationEmail(user.email, verificationToken)
+          .then((emailSent) => {
+            if (!emailSent) {
+              console.error('Failed to send verification email to:', user.email);
+            } else {
+              console.log('Verification email sent successfully to:', user.email);
+            }
+          })
+          .catch((error) => {
+            console.error('Error sending verification email:', error);
+          });
+      }).catch((error) => {
+        console.error('Error setting verification token:', error);
+      });
+      
+      res.json({ 
+        message: "Registration successful! Please check your email to verify your account.",
+        user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, emailVerified: false }
       });
     } catch (error) {
-      res.status(400).json({ message: "Invalid registration data", error });
+      console.error('Registration error:', error);
+      res.status(400).json({ message: "Invalid registration data", error: error.message });
     }
   });
 
-  // app.post("/api/auth/login", passport.authenticate("local"), (req, res) => {
-  //   res.json({ user: req.user });
-  // });
   app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: Express.User, info: { message: any; }) => {
-      console.log("[Route] /api/auth/login callback:", { err, user, info });
-      if (err)   return next(err);
-      if (!user) return res.status(401).json({ message: info?.message || "Unauthorized" });
-      req.login(user, loginErr => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Authentication error" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid email or password" });
+      }
+      
+      // Check if user's email is verified
+      if (!user.emailVerified) {
+        return res.status(403).json({ 
+          message: "Email not verified. Please check your email and click the verification link.",
+          requiresVerification: true,
+          userId: user.id 
+        });
+      }
+      
+      req.login(user, (loginErr) => {
         if (loginErr) {
-          console.error("[Route] req.login error:", loginErr);
-          return next(loginErr);
+          return res.status(500).json({ message: "Login error" });
         }
-        console.log("[Route] login succeeded, session:", req.sessionID);
-        res.json({ user });
+        res.json({ user: req.user });
       });
     })(req, res, next);
   });
-  
-
-
 
   app.post("/api/auth/logout", (req, res) => {
     req.logout((err) => {
@@ -228,6 +260,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Email verification routes
+  app.get("/auth/verify-email", async (req, res) => {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #e74c3c;">Invalid Verification Link</h1>
+              <p>The verification link is invalid or missing.</p>
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+                 style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Go to PostMeAI
+              </a>
+            </body>
+          </html>
+        `);
+      }
+      
+      const user = await storage.verifyEmail(token);
+      
+      if (!user) {
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #e74c3c;">Verification Failed</h1>
+              <p>The verification link is invalid or has expired.</p>
+              <p>Please request a new verification email.</p>
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+                 style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Go to PostMeAI
+              </a>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Send welcome email
+      await sendWelcomeEmail(user.email, user.firstName);
+      
+      // Auto-login the user after verification
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Auto-login error after verification:', err);
+        }
+      });
+      
+      res.send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #27ae60;">Email Verified Successfully!</h1>
+            <p>Welcome to PostMeAI, ${user.firstName || 'User'}!</p>
+            <p>Your account is now active and you can start creating amazing content.</p>
+            <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              Start Creating Content
+            </a>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('Email verification error:', error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #e74c3c;">Verification Error</h1>
+            <p>An error occurred during email verification.</p>
+            <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+               style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+              Go to PostMeAI
+            </a>
+          </body>
+        </html>
+      `);
+    }
+  });
+  app.post("/api/auth/resend-verification", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email is already verified" });
+      }
+      
+      // Generate new verification token
+      const verificationToken = generateVerificationToken();
+      await storage.setVerificationToken(user.id, verificationToken);
+      
+      const emailSent = await sendVerificationEmail(user.email, verificationToken);
+      
+      if (!emailSent) {
+        return res.status(500).json({ message: "Failed to send verification email" });
+      }
+      
+      res.json({ message: "Verification email sent successfully" });
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      res.status(500).json({ message: "Failed to resend verification email" });
+    }
+  });
   // OAuth routes
   app.get("/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
   app.get("/auth/facebook/callback", passport.authenticate("facebook", { failureRedirect: "/login" }), (req, res) => {
@@ -256,7 +399,7 @@ app.get("/auth/linkedin", passport.authenticate("linkedin-oidc"));
 // — Custom callback so we can log err/user/info —
   // — Custom LinkedIn callback (only one!) —
 // kick off the flow
-app.get("/auth/linkedin", passport.authenticate("linkedin-oidc"));
+//app.get("/auth/linkedin", passport.authenticate("linkedin-oidc"));
 
 // callback
 app.get(
@@ -1520,6 +1663,112 @@ app.get(
       res.json({ apiKey });
     } else {
       res.status(404).json({ message: 'No LinkedIn API key found' });
+    }
+  });
+  // User data deletion routes
+  app.get('/api/user/data-summary', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get counts of all user data
+      const posts = await storage.getPostsByUserId(userId);
+      const images = await storage.getImagesByUserId(userId);
+      const schedules = await storage.getPostSchedulesByUserId(userId);
+      const socialConfigs = await storage.getSocialMediaConfigs(userId);
+      const transactions = await storage.getPaymentTransactionsByUserId(userId);
+      const templates = await storage.getTemplatesByUserId(userId);
+      
+      const dataSummary = {
+        posts: posts.length,
+        media: images.length,
+        schedules: schedules.length,
+        socialConfigs: socialConfigs.length,
+        transactions: transactions.length,
+        templates: templates.length
+      };
+      
+      res.json(dataSummary);
+    } catch (error: any) {
+      console.error("Error fetching user data summary:", error);
+      res.status(500).json({ message: "Failed to fetch user data summary" });
+    }
+  });
+  app.delete('/api/user/delete-account', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { confirmation } = req.body;
+      
+      // Verify confirmation text
+      if (confirmation !== "DELETE MY ACCOUNT") {
+        return res.status(400).json({ message: "Invalid confirmation text" });
+      }
+      
+      // Delete all user data in the correct order (respecting foreign key constraints)
+      
+      // 1. Delete schedule executions
+      const schedules = await storage.getPostSchedulesByUserId(userId);
+      for (const schedule of schedules) {
+        await storage.deleteScheduleExecutions(schedule.id);
+      }
+      
+      // 2. Delete post schedules
+      for (const schedule of schedules) {
+        await storage.deletePostSchedule(schedule.id, userId);
+      }
+      
+      // 3. Delete published posts
+      const posts = await storage.getPostsByUserId(userId);
+      for (const post of posts) {
+        await storage.deletePublishedPostsByPostId(post.id);
+      }
+      
+      // 4. Delete generated content
+      for (const post of posts) {
+        await storage.deleteGeneratedContentByPostId(post.id);
+      }
+      
+      // 5. Delete templates
+      const templates = await storage.getTemplatesByUserId(userId);
+      for (const template of templates) {
+        await storage.deleteTemplate(template.id, userId);
+      }
+      
+      // 6. Delete posts
+      for (const post of posts) {
+        await storage.deletePost(post.id, userId);
+      }
+      
+      // 7. Delete images
+      const images = await storage.getImagesByUserId(userId);
+      for (const image of images) {
+        await storage.deleteImage(image.id, userId);
+      }
+      
+      // 8. Delete folders
+      const folders = await storage.getFoldersByUserId(userId);
+      for (const folder of folders) {
+        await storage.deleteFolder(folder.id, userId);
+      }
+      
+      // 9. Delete social media configs
+      await storage.deleteSocialMediaConfigs(userId);
+      
+      // 10. Delete payment transactions
+      await storage.deletePaymentTransactions(userId);
+      
+      // 11. Finally, delete the user account
+      await storage.deleteUser(userId);
+      
+      // Clear session
+      req.session.destroy();
+      
+      res.json({ 
+        success: true, 
+        message: "Account and all associated data have been permanently deleted" 
+      });
+    } catch (error: any) {
+      console.error("Error deleting user account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
     }
   });
   // Enhanced Facebook API key validation

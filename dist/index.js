@@ -105,6 +105,10 @@ var users = pgTable("users", {
   autoSave: boolean("auto_save").default(true),
   rememberLogin: boolean("remember_login").default(true),
   twoFactorAuth: boolean("two_factor_auth").default(false),
+  // Email verification fields
+  emailVerified: boolean("email_verified").default(false),
+  verificationToken: varchar("verification_token"),
+  verificationTokenExpiry: timestamp("verification_token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -146,7 +150,7 @@ var templates = pgTable("templates", {
   time: text("time").notNull(),
   timezone: text("timezone").notNull(),
   targetPlatforms: text("target_platforms").array(),
-  // Array of platform IDs																 
+  // Array of platform IDs
   isActive: boolean("is_active").notNull().default(true),
   lastExecutedAt: timestamp("last_executed_at"),
   createdAt: timestamp("created_at").defaultNow()
@@ -398,7 +402,9 @@ var DatabaseStorage = class {
       lastAuthMethod: "local",
       credits: 100,
       // Give new users 100 credits to start
-      subscriptionStatus: "inactive"
+      subscriptionStatus: "inactive",
+      emailVerified: false
+      // New users start as unverified
     }).returning();
     return user;
   }
@@ -693,6 +699,73 @@ var DatabaseStorage = class {
   async getScheduleExecutionsByScheduleId(scheduleId, userId) {
     return await db.select().from(scheduleExecutions).where(and(eq(scheduleExecutions.scheduleId, scheduleId), eq(scheduleExecutions.userId, userId))).orderBy(desc(scheduleExecutions.executedAt));
   }
+  // User data deletion operations
+  async getPostsByUserId(userId) {
+    return await db.select().from(posts).where(eq(posts.userId, userId));
+  }
+  async deleteUser(userId) {
+    const result = await db.delete(users).where(eq(users.id, userId));
+    return (result.rowCount || 0) > 0;
+  }
+  async deletePost(id, userId) {
+    const result = await db.delete(posts).where(and(eq(posts.id, id), eq(posts.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+  async deletePublishedPostsByPostId(postId) {
+    const result = await db.delete(publishedPosts).where(eq(publishedPosts.postId, postId));
+    return (result.rowCount || 0) > 0;
+  }
+  async deleteGeneratedContentByPostId(postId) {
+    const result = await db.delete(generatedContent).where(eq(generatedContent.postId, postId));
+    return (result.rowCount || 0) > 0;
+  }
+  async deleteScheduleExecutions(scheduleId) {
+    const result = await db.delete(scheduleExecutions).where(eq(scheduleExecutions.scheduleId, scheduleId));
+    return (result.rowCount || 0) > 0;
+  }
+  async deleteSocialMediaConfigs(userId) {
+    const result = await db.delete(socialMediaConfigs).where(eq(socialMediaConfigs.userId, userId));
+    return (result.rowCount || 0) > 0;
+  }
+  async deletePaymentTransactions(userId) {
+    const result = await db.delete(paymentTransactions).where(eq(paymentTransactions.userId, userId));
+    return (result.rowCount || 0) > 0;
+  }
+  // Email verification operations
+  async setVerificationToken(userId, token) {
+    const expiryTime = new Date(Date.now() + 24 * 60 * 60 * 1e3);
+    await db.update(users).set({
+      verificationToken: token,
+      verificationTokenExpiry: expiryTime
+    }).where(eq(users.id, userId));
+  }
+  async verifyEmail(token) {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.verificationToken, token));
+      if (!user) return null;
+      if (user.verificationTokenExpiry && user.verificationTokenExpiry < /* @__PURE__ */ new Date()) {
+        return null;
+      }
+      await db.update(users).set({
+        emailVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null
+      }).where(eq(users.id, user.id));
+      return { ...user, emailVerified: true };
+    } catch (error) {
+      console.error("Error verifying email:", error);
+      return null;
+    }
+  }
+  async getUserByVerificationToken(token) {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.verificationToken, token));
+      return user || null;
+    } catch (error) {
+      console.error("Error getting user by verification token:", error);
+      return null;
+    }
+  }
 };
 var storage = new DatabaseStorage();
 
@@ -908,181 +981,356 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as FacebookStrategy } from "passport-facebook";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Strategy as LinkedInStrategy } from "passport-linkedin-oauth2";
+import { Strategy as OIDCStrategy } from "passport-openidconnect";
 import { Strategy as GitHubStrategy } from "passport-github2";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import cors from "cors";
 function setupAuth(app2) {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1e3;
+  app2.use(
+    cors({
+      origin: process.env.FRONTEND_URL || "http://localhost:5000",
+      credentials: true
+    })
+  );
   const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    pool,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions"
-  });
-  app2.use(session({
-    secret: process.env.SESSION_SECRET || "your-secret-key-change-in-production",
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: sessionTtl
-    }
-  }));
+  app2.use(
+    session({
+      secret: process.env.SESSION_SECRET || "change-this-in-prod",
+      store: new pgStore({ pool, tableName: "sessions", ttl: 7 * 24 * 60 * 60 }),
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1e3
+      }
+    })
+  );
   app2.use(passport.initialize());
   app2.use(passport.session());
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
+  passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id, done) => {
     try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error, null);
+      const u = await storage.getUser(id);
+      done(null, u);
+    } catch (e) {
+      done(e, null);
     }
   });
-  passport.use(new LocalStrategy({
-    usernameField: "email",
-    passwordField: "password"
-  }, async (email, password, done) => {
-    try {
-      const user = await storage.authenticateUser(email, password);
-      if (!user) {
-        return done(null, false, { message: "Invalid email or password" });
+  passport.use(
+    new LocalStrategy(
+      { usernameField: "email", passwordField: "password" },
+      async (email, password, done) => {
+        try {
+          const user = await storage.authenticateUser(email, password);
+          return done(null, user || false, user ? void 0 : { message: "Invalid credentials" });
+        } catch (err) {
+          return done(err);
+        }
       }
-      return done(null, user);
-    } catch (error) {
-      return done(error);
-    }
-  }));
+    )
+  );
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
-    console.log("Facebook OAuth configured with App ID:", process.env.FACEBOOK_APP_ID);
-    console.log("Facebook callback URL:", process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/callback" : "http://localhost:5000/auth/facebook/callback");
-    passport.use(new FacebookStrategy({
-      clientID: process.env.FACEBOOK_APP_ID,
-      clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/facebook/callback" : "http://localhost:5000/auth/facebook/callback",
-      profileFields: ["id", "emails", "name", "picture.type(large)"]
-    }, async (accessToken, refreshToken, profile, done) => {
-      try {
-        const userId = `facebook_${profile.id}`;
-        const user = await storage.upsertUser({
-          id: userId,
-          email: profile.emails?.[0]?.value || null,
-          firstName: profile.name?.givenName || null,
-          lastName: profile.name?.familyName || null,
-          profileImageUrl: profile.photos?.[0]?.value || null,
-          authProvider: "facebook",
-          providerId: profile.id,
-          lastAuthMethod: "facebook"
-        });
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    }));
+    const FB_CB = process.env.FACEBOOK_CALLBACK_URL;
+    passport.use(
+      new FacebookStrategy(
+        {
+          clientID: process.env.FACEBOOK_APP_ID,
+          clientSecret: process.env.FACEBOOK_APP_SECRET,
+          callbackURL: FB_CB,
+          profileFields: ["id", "emails", "name", "picture.type(large)"]
+        },
+        async (accessToken, refreshToken, profile, done) => {
+          try {
+            const userId = `facebook_${profile.id}`;
+            const u = await storage.upsertUser({
+              id: userId,
+              email: profile.emails?.[0]?.value || null,
+              firstName: profile.name?.givenName || null,
+              lastName: profile.name?.familyName || null,
+              profileImageUrl: profile.photos?.[0]?.value || null,
+              authProvider: "facebook",
+              providerId: profile.id,
+              lastAuthMethod: "facebook"
+            });
+            done(null, u);
+          } catch (e) {
+            done(e);
+          }
+        }
+      )
+    );
   }
-  console.log("Google OAuth configured with Client ID:", process.env.GOOGLE_CLIENT_ID);
-  console.log("Callback URL:", process.env.CALLBACK_URL);
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    passport.use(new GoogleStrategy({
-      ///"http://localhost:5000/auth/google/callback"
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      //callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/google/callback" : "http://localhost:5000/auth/google/callback"
-      callbackURL: process.env.CALLBACK_URL
-    }, async (accessToken, refreshToken, profile, done) => {
-      try {
-        const userId = `google_${profile.id}`;
-        const user = await storage.upsertUser({
-          id: userId,
-          email: profile.emails?.[0]?.value || null,
-          firstName: profile.name?.givenName || null,
-          lastName: profile.name?.familyName || null,
-          profileImageUrl: profile.photos?.[0]?.value || null,
-          authProvider: "google",
-          providerId: profile.id,
-          lastAuthMethod: "google"
-        });
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    }));
-  }
-  if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
-    console.log("LinkedIn OAuth configured with Client ID:", process.env.LINKEDIN_CLIENT_ID);
-    console.log("LinkedIn callback URL:", process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/callback" : "http://localhost:5000/auth/linkedin/callback");
-    passport.use(new LinkedInStrategy({
-      clientID: process.env.LINKEDIN_CLIENT_ID,
-      clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: process.env.NODE_ENV === "production" ? "https://postmeai.com/auth/linkedin/callback" : "http://localhost:5000/auth/linkedin/callback",
-      scope: ["openid", "profile", "email"],
-      state: true
-    }, async (accessToken, refreshToken, profile, done) => {
-      try {
-        console.log("LinkedIn profile received:", JSON.stringify(profile, null, 2));
-        const userId = `linkedin_${profile.id}`;
-        const user = await storage.upsertUser({
-          id: userId,
-          email: profile.emails?.[0]?.value || profile.email || null,
-          firstName: profile.name?.givenName || profile.given_name || null,
-          lastName: profile.name?.familyName || profile.family_name || null,
-          profileImageUrl: profile.photos?.[0]?.value || profile.picture || null,
-          authProvider: "linkedin",
-          providerId: profile.id,
-          lastAuthMethod: "linkedin"
-        });
-        console.log("LinkedIn user created/updated:", user);
-        return done(null, user);
-      } catch (error) {
-        console.error("LinkedIn authentication error:", error);
-        return done(error);
-      }
-    }));
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          callbackURL: process.env.CALLBACK_URL
+        },
+        async (accessToken, refreshToken, profile, done) => {
+          try {
+            const userId = `google_${profile.id}`;
+            const u = await storage.upsertUser({
+              id: userId,
+              email: profile.emails?.[0]?.value || null,
+              firstName: profile.name?.givenName || null,
+              lastName: profile.name?.familyName || null,
+              profileImageUrl: profile.photos?.[0]?.value || null,
+              authProvider: "google",
+              providerId: profile.id,
+              lastAuthMethod: "google"
+            });
+            done(null, u);
+          } catch (e) {
+            done(e);
+          }
+        }
+      )
+    );
   }
   if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-    passport.use(new GitHubStrategy({
-      clientID: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL: "/auth/github/callback"
-    }, async (accessToken, refreshToken, profile, done) => {
-      try {
-        const userId = `github_${profile.id}`;
-        const user = await storage.upsertUser({
-          id: userId,
-          email: profile.emails?.[0]?.value || null,
-          firstName: profile.displayName?.split(" ")[0] || null,
-          lastName: profile.displayName?.split(" ").slice(1).join(" ") || null,
-          profileImageUrl: profile.photos?.[0]?.value || null,
-          authProvider: "github",
-          providerId: profile.id,
-          lastAuthMethod: "github"
-        });
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    }));
+    passport.use(
+      new GitHubStrategy(
+        {
+          clientID: process.env.GITHUB_CLIENT_ID,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET,
+          callbackURL: "/auth/github/callback"
+        },
+        async (accessToken, refreshToken, profile, done) => {
+          try {
+            const userId = `github_${profile.id}`;
+            const u = await storage.upsertUser({
+              id: userId,
+              email: profile.emails?.[0]?.value || null,
+              firstName: profile.displayName?.split(" ")[0] || null,
+              lastName: profile.displayName?.split(" ").slice(1).join(" ") || null,
+              profileImageUrl: profile.photos?.[0]?.value || null,
+              authProvider: "github",
+              providerId: profile.id,
+              lastAuthMethod: "github"
+            });
+            done(null, u);
+          } catch (e) {
+            done(e);
+          }
+        }
+      )
+    );
+  }
+  if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+    const LN_CB = process.env.LINKEDIN_CALLBACK_URL;
+    passport.use(
+      "linkedin-oidc",
+      new OIDCStrategy(
+        {
+          issuer: "https://www.linkedin.com/oauth",
+          // ← must match the token's `iss`
+          authorizationURL: "https://www.linkedin.com/oauth/v2/authorization",
+          tokenURL: "https://www.linkedin.com/oauth/v2/accessToken",
+          userInfoURL: "https://api.linkedin.com/v2/userinfo",
+          clientID: process.env.LINKEDIN_CLIENT_ID,
+          clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+          callbackURL: LN_CB,
+          scope: ["openid", "profile", "email"],
+          state: true
+        },
+        // note the exact signature: issuer, claims, profile, accessToken, refreshToken, params, done
+        async function(issuer, claims, profile, accessToken, refreshToken, params, done) {
+          console.log("[LinkedIn Strat] issuer=", issuer);
+          console.log("[LinkedIn Strat] claims =", claims);
+          console.log("[LinkedIn Strat] raw profile =", profile);
+          try {
+            const data = profile || claims;
+            const providerId = data.id || claims.sub;
+            const firstName = data.localizedFirstName || data.name?.givenName || data.given_name || null;
+            const lastName = data.localizedLastName || data.name?.familyName || data.family_name || null;
+            const email = data.emails?.[0]?.value || data.email || null;
+            const userId = `linkedin_${providerId}`;
+            const u = await storage.upsertUser({
+              id: userId,
+              email,
+              firstName,
+              lastName,
+              profileImageUrl: data.profilePicture?.["displayImage~"]?.elements?.[0]?.identifiers?.[0].identifier || null,
+              authProvider: "linkedin",
+              providerId,
+              lastAuthMethod: "linkedin"
+            });
+            console.log("[LinkedIn Strat] upsertUser OK", u.id);
+            done(null, u);
+          } catch (err) {
+            console.error("[LinkedIn Strat] verify error:", err);
+            done(err);
+          }
+        }
+      )
+    );
   }
 }
 var requireAuth = (req, res, next) => {
-  if (req.isAuthenticated()) {
-    return next();
-  }
+  if (req.isAuthenticated()) return next();
   res.status(401).json({ message: "Authentication required" });
 };
-var optionalAuth = (req, res, next) => {
-  next();
-};
+var optionalAuth = (_req, _res, next) => next();
 
 // server/routes.ts
 import passport2 from "passport";
 import multer from "multer";
+
+// server/email.ts
+import nodemailer from "nodemailer";
+import { randomBytes } from "crypto";
+var smtpConfig = {
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true" || parseInt(process.env.SMTP_PORT || "587") === 465,
+  // true for 465, false for other ports
+  auth: {
+    user: process.env.EMAIL_USER || "contact@postmeai.com",
+    pass: process.env.EMAIL_PASS || "your-password"
+  },
+  connectionTimeout: 15e3,
+  // 15 seconds
+  greetingTimeout: 1e4,
+  // 10 seconds  
+  socketTimeout: 15e3,
+  // 15 seconds
+  logger: true,
+  // Enable logging for debugging
+  debug: true
+  // Enable debug info
+};
+console.log("SMTP Configuration:", {
+  host: smtpConfig.host,
+  port: smtpConfig.port,
+  secure: smtpConfig.secure,
+  user: smtpConfig.auth.user,
+  hasPassword: !!smtpConfig.auth.pass
+});
+var transporter = nodemailer.createTransport(smtpConfig);
+function generateVerificationToken() {
+  return randomBytes(32).toString("hex");
+}
+async function sendVerificationEmail(email, token) {
+  try {
+    const verificationUrl = `${process.env.NODE_ENV === "production" ? "https://postmeai.com" : "http://localhost:5000"}/auth/verify-email?token=${token}`;
+    const mailOptions = {
+      from: process.env.EMAIL_USER || "PostMeAI <contact@postmeai.com>",
+      to: email,
+      subject: "Verify Your PostMeAI Account",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to PostMeAI!</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Turn Ideas into Viral Content</p>
+          </div>
+          
+          <div style="background: white; padding: 40px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="color: #333; margin-top: 0;">Please verify your email address</h2>
+            <p style="color: #666; font-size: 16px; line-height: 1.5;">
+              Thank you for signing up for PostMeAI! To complete your registration and start creating amazing social media content, please verify your email address by clicking the button below.
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verificationUrl}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        font-weight: bold; 
+                        display: inline-block;
+                        font-size: 16px;">
+                Verify Email Address
+              </a>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; line-height: 1.5;">
+              If the button doesn't work, you can also copy and paste this link into your browser:
+              <br><br>
+              <a href="${verificationUrl}" style="color: #667eea; word-break: break-all;">${verificationUrl}</a>
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            
+            <p style="color: #999; font-size: 12px; text-align: center;">
+              This verification link will expire in 24 hours. If you didn't create an account with PostMeAI, please ignore this email.
+            </p>
+          </div>
+        </div>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error("Failed to send verification email:", error);
+    return false;
+  }
+}
+async function sendWelcomeEmail(email, firstName) {
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER || "PostMeAI <contact@postmeai.com>",
+      to: email,
+      subject: "Welcome to PostMeAI - Your Account is Verified!",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome ${firstName ? firstName : ""}!</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Your PostMeAI account is now active</p>
+          </div>
+          
+          <div style="background: white; padding: 40px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="color: #333; margin-top: 0;">\u{1F389} You're all set!</h2>
+            <p style="color: #666; font-size: 16px; line-height: 1.5;">
+              Your email has been verified and you now have full access to PostMeAI. Start creating amazing social media content with the power of AI!
+            </p>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">What you can do now:</h3>
+              <ul style="color: #666; padding-left: 20px;">
+                <li>Create AI-powered social media posts</li>
+                <li>Schedule content across multiple platforms</li>
+                <li>Build and manage your image library</li>
+                <li>Set up automated posting templates</li>
+                <li>Connect your social media accounts</li>
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NODE_ENV === "production" ? "https://postmeai.com" : "http://localhost:5000"}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        font-weight: bold; 
+                        display: inline-block;
+                        font-size: 16px;">
+                Start Creating Content
+              </a>
+            </div>
+            
+            <p style="color: #999; font-size: 12px; text-align: center;">
+              Need help? Check out our documentation or contact support at support@postmeai.com
+            </p>
+          </div>
+        </div>
+      `
+    };
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error("Failed to send welcome email:", error);
+    return false;
+  }
+}
+
+// server/routes.ts
 var SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
   { code: "es", name: "Spanish" },
@@ -1269,34 +1517,58 @@ async function registerRoutes(app2) {
   setupAuth(app2);
   app2.post("/api/auth/register", async (req, res) => {
     try {
+      console.log("Registration request body:", req.body);
       const userData = localAuthSchema.parse(req.body);
+      console.log("Parsed userData:", userData);
       const existingUser = await storage.getUserByEmail(userData.email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists with this email" });
       }
       const user = await storage.createLocalUser(userData);
-      req.login(user, (err) => {
-        if (err) {
-          return res.status(500).json({ message: "Login error after registration" });
-        }
-        res.json({ user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName } });
+      const verificationToken = generateVerificationToken();
+      storage.setVerificationToken(user.id, verificationToken).then(() => {
+        console.log("Verification token set for user:", user.email);
+        sendVerificationEmail(user.email, verificationToken).then((emailSent) => {
+          if (!emailSent) {
+            console.error("Failed to send verification email to:", user.email);
+          } else {
+            console.log("Verification email sent successfully to:", user.email);
+          }
+        }).catch((error) => {
+          console.error("Error sending verification email:", error);
+        });
+      }).catch((error) => {
+        console.error("Error setting verification token:", error);
+      });
+      res.json({
+        message: "Registration successful! Please check your email to verify your account.",
+        user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, emailVerified: false }
       });
     } catch (error) {
-      res.status(400).json({ message: "Invalid registration data", error });
+      console.error("Registration error:", error);
+      res.status(400).json({ message: "Invalid registration data", error: error.message });
     }
   });
   app2.post("/api/auth/login", (req, res, next) => {
     passport2.authenticate("local", (err, user, info) => {
-      console.log("[Route] /api/auth/login callback:", { err, user, info });
-      if (err) return next(err);
-      if (!user) return res.status(401).json({ message: info?.message || "Unauthorized" });
+      if (err) {
+        return res.status(500).json({ message: "Authentication error" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid email or password" });
+      }
+      if (!user.emailVerified) {
+        return res.status(403).json({
+          message: "Email not verified. Please check your email and click the verification link.",
+          requiresVerification: true,
+          userId: user.id
+        });
+      }
       req.login(user, (loginErr) => {
         if (loginErr) {
-          console.error("[Route] req.login error:", loginErr);
-          return next(loginErr);
+          return res.status(500).json({ message: "Login error" });
         }
-        console.log("[Route] login succeeded, session:", req.sessionID);
-        res.json({ user });
+        res.json({ user: req.user });
       });
     })(req, res, next);
   });
@@ -1315,6 +1587,99 @@ async function registerRoutes(app2) {
       res.status(401).json({ message: "Not authenticated" });
     }
   });
+  app2.get("/auth/verify-email", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== "string") {
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #e74c3c;">Invalid Verification Link</h1>
+              <p>The verification link is invalid or missing.</p>
+              <a href="${process.env.NODE_ENV === "production" ? "https://postmeai.com" : "http://localhost:5000"}" 
+                 style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Go to PostMeAI
+              </a>
+            </body>
+          </html>
+        `);
+      }
+      const user = await storage.verifyEmail(token);
+      if (!user) {
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #e74c3c;">Verification Failed</h1>
+              <p>The verification link is invalid or has expired.</p>
+              <p>Please request a new verification email.</p>
+              <a href="${process.env.NODE_ENV === "production" ? "https://postmeai.com" : "http://localhost:5000"}" 
+                 style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Go to PostMeAI
+              </a>
+            </body>
+          </html>
+        `);
+      }
+      await sendWelcomeEmail(user.email, user.firstName);
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Auto-login error after verification:", err);
+        }
+      });
+      res.send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #27ae60;">Email Verified Successfully!</h1>
+            <p>Welcome to PostMeAI, ${user.firstName || "User"}!</p>
+            <p>Your account is now active and you can start creating amazing content.</p>
+            <a href="${process.env.NODE_ENV === "production" ? "https://postmeai.com" : "http://localhost:5000"}" 
+               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              Start Creating Content
+            </a>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Email verification error:", error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #e74c3c;">Verification Error</h1>
+            <p>An error occurred during email verification.</p>
+            <a href="${process.env.NODE_ENV === "production" ? "https://postmeai.com" : "http://localhost:5000"}" 
+               style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+              Go to PostMeAI
+            </a>
+          </body>
+        </html>
+      `);
+    }
+  });
+  app2.post("/api/auth/resend-verification", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email is already verified" });
+      }
+      const verificationToken = generateVerificationToken();
+      await storage.setVerificationToken(user.id, verificationToken);
+      const emailSent = await sendVerificationEmail(user.email, verificationToken);
+      if (!emailSent) {
+        return res.status(500).json({ message: "Failed to send verification email" });
+      }
+      res.json({ message: "Verification email sent successfully" });
+    } catch (error) {
+      console.error("Resend verification error:", error);
+      res.status(500).json({ message: "Failed to resend verification email" });
+    }
+  });
   app2.get("/auth/facebook", passport2.authenticate("facebook", { scope: ["email"] }));
   app2.get("/auth/facebook/callback", passport2.authenticate("facebook", { failureRedirect: "/login" }), (req, res) => {
     res.redirect("/");
@@ -1331,32 +1696,29 @@ async function registerRoutes(app2) {
       res.redirect("/");
     });
   });
-  app2.get("/auth/linkedin", passport2.authenticate("linkedin", { scope: ["openid", "profile", "email"] }));
-  app2.get("/auth/linkedin/callback", (req, res, next) => {
-    console.log("LinkedIn OAuth callback hit with query:", req.query);
-    passport2.authenticate("linkedin", { failureRedirect: "/login" })(req, res, (err) => {
-      if (err) {
-        console.error("LinkedIn OAuth error:", err);
-        return res.send(`
-          <script>
-            window.close();
-            if (window.opener) {
-              window.opener.location.href = '/login?error=linkedin_oauth_failed';
-            }
-          </script>
-        `);
-      }
-      console.log("LinkedIn OAuth success, user:", req.user);
+  app2.get("/auth/linkedin", passport2.authenticate("linkedin-oidc"));
+  app2.get(
+    "/auth/linkedin/callback",
+    passport2.authenticate("linkedin-oidc", {
+      failureRedirect: "/login",
+      session: true
+    }),
+    (req, res) => {
+      const url = process.env.FRONTEND_URL || "http://localhost:5000";
       res.send(`
-        <script>
+      <html><body>
+      <script>
+        if (window.opener) {
+          window.opener.location.href = "${url}";
           window.close();
-          if (window.opener) {
-            window.opener.location.href = '/';
-          }
-        </script>
-      `);
-    });
-  });
+        } else {
+          window.location.href = "${url}";
+        }
+      </script>
+      </body></html>
+    `);
+    }
+  );
   app2.get("/auth/github", passport2.authenticate("github", { scope: ["user:email"] }));
   app2.get("/auth/github/callback", passport2.authenticate("github", { failureRedirect: "/login" }), (req, res) => {
     res.redirect("/");
@@ -2330,6 +2692,78 @@ async function registerRoutes(app2) {
       res.status(404).json({ message: "No LinkedIn API key found" });
     }
   });
+  app2.get("/api/user/data-summary", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const posts2 = await storage.getPostsByUserId(userId);
+      const images2 = await storage.getImagesByUserId(userId);
+      const schedules = await storage.getPostSchedulesByUserId(userId);
+      const socialConfigs = await storage.getSocialMediaConfigs(userId);
+      const transactions = await storage.getPaymentTransactionsByUserId(userId);
+      const templates2 = await storage.getTemplatesByUserId(userId);
+      const dataSummary = {
+        posts: posts2.length,
+        media: images2.length,
+        schedules: schedules.length,
+        socialConfigs: socialConfigs.length,
+        transactions: transactions.length,
+        templates: templates2.length
+      };
+      res.json(dataSummary);
+    } catch (error) {
+      console.error("Error fetching user data summary:", error);
+      res.status(500).json({ message: "Failed to fetch user data summary" });
+    }
+  });
+  app2.delete("/api/user/delete-account", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { confirmation } = req.body;
+      if (confirmation !== "DELETE MY ACCOUNT") {
+        return res.status(400).json({ message: "Invalid confirmation text" });
+      }
+      const schedules = await storage.getPostSchedulesByUserId(userId);
+      for (const schedule of schedules) {
+        await storage.deleteScheduleExecutions(schedule.id);
+      }
+      for (const schedule of schedules) {
+        await storage.deletePostSchedule(schedule.id, userId);
+      }
+      const posts2 = await storage.getPostsByUserId(userId);
+      for (const post of posts2) {
+        await storage.deletePublishedPostsByPostId(post.id);
+      }
+      for (const post of posts2) {
+        await storage.deleteGeneratedContentByPostId(post.id);
+      }
+      const templates2 = await storage.getTemplatesByUserId(userId);
+      for (const template of templates2) {
+        await storage.deleteTemplate(template.id, userId);
+      }
+      for (const post of posts2) {
+        await storage.deletePost(post.id, userId);
+      }
+      const images2 = await storage.getImagesByUserId(userId);
+      for (const image of images2) {
+        await storage.deleteImage(image.id, userId);
+      }
+      const folders2 = await storage.getFoldersByUserId(userId);
+      for (const folder of folders2) {
+        await storage.deleteFolder(folder.id, userId);
+      }
+      await storage.deleteSocialMediaConfigs(userId);
+      await storage.deletePaymentTransactions(userId);
+      await storage.deleteUser(userId);
+      req.session.destroy();
+      res.json({
+        success: true,
+        message: "Account and all associated data have been permanently deleted"
+      });
+    } catch (error) {
+      console.error("Error deleting user account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
   app2.post("/api/social-media-configs/:platformId/test", requireAuth, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -2831,11 +3265,11 @@ function serveStatic(app2) {
 
 // server/index.ts
 import dotenv3 from "dotenv";
-import cors from "cors";
+import cors2 from "cors";
 dotenv3.config();
 var app = express2();
 app.set("trust proxy", 1);
-app.use(cors({
+app.use(cors2({
   //origin: "https://postme-ai-frontend-2d76778b4014.herokuapp.com", 
   origin: "https://www.postmeai.com",
   credentials: true

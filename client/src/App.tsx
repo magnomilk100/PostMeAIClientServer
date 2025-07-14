@@ -23,6 +23,7 @@ import WatchDemo from "@/pages/WatchDemo";
 import PendentPosts from "@/pages/PendentPosts";
 import PostSchedule from "@/pages/PostSchedule";
 import PostScheduleWizard from "@/pages/PostScheduleWizard";
+import UserDataDeletion from "@/pages/UserDataDeletion";
 import Login from "@/pages/Login";
 import I18nDemo from "@/pages/I18nDemo";
 import NotFound from "@/pages/not-found";
@@ -49,6 +50,7 @@ function Router() {
         <Route path="/pendent-posts" component={PendentPosts} />
         <Route path="/post-schedule" component={PostSchedule} />
         <Route path="/post-schedule-wizard" component={PostScheduleWizard} />
+        <Route path="/user-data-deletion" component={UserDataDeletion} />
         <Route path="/login" component={Login} />
         <Route path="/i18n-demo" component={I18nDemo} />
         <Route component={NotFound} />

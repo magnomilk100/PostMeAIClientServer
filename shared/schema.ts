@@ -58,6 +58,10 @@ export const users = pgTable("users", {
   autoSave: boolean("auto_save").default(true),
   rememberLogin: boolean("remember_login").default(true),
   twoFactorAuth: boolean("two_factor_auth").default(false),
+  // Email verification fields
+  emailVerified: boolean("email_verified").default(false),
+  verificationToken: varchar("verification_token"),
+  verificationTokenExpiry: timestamp("verification_token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -99,7 +103,7 @@ export const templates = pgTable("templates", {
   frequency: text("frequency").notNull(), // daily, weekly, monthly
   time: text("time").notNull(),
   timezone: text("timezone").notNull(),
-  targetPlatforms: text("target_platforms").array(), // Array of platform IDs																 
+  targetPlatforms: text("target_platforms").array(), // Array of platform IDs
   isActive: boolean("is_active").notNull().default(true),
   lastExecutedAt: timestamp("last_executed_at"),
   createdAt: timestamp("created_at").defaultNow(),
