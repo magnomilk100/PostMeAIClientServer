@@ -167,6 +167,16 @@ function generateMockContent(subject: string, platform?: string) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Helper function to get the correct base URL
+  const getBaseUrl = () => {
+    if (process.env.NODE_ENV === 'production') {
+      return 'https://postmeai.com';
+    }
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    }
+    return 'http://localhost:5000';
+  };
   // Setup authentication
   setupAuth(app);
 
@@ -238,6 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       req.login(user, (loginErr) => {
         if (loginErr) {
+          console.error("Login error:", loginErr);
           return res.status(500).json({ message: "Login error" });
         }
         res.json({ user: req.user });

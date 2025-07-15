@@ -54,13 +54,39 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  passport.serializeUser((user: any, done) => done(null, user.id));
+  // Middleware to handle stale sessions
+  app.use((req, res, next) => {
+    // If passport attempted to deserialize but couldn't find the user
+    if (req.session && req.session.passport && req.session.passport.user && !req.user) {
+      // Destroy the invalid session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Error destroying stale session:', err);
+        }
+      });
+    }
+    next();
+  });
+
+  // Passport serialization
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
   passport.deserializeUser(async (id: string, done) => {
     try {
-      const u = await storage.getUser(id);
-      done(null, u);
-    } catch (e) {
-      done(e as Error, null);
+      const user = await storage.getUser(id);
+      if (!user) {
+        // User was deleted from database but session still exists
+        // Return null to invalidate session without throwing error
+        done(null, null);
+        return;
+      }
+      done(null, user);
+    } catch (error) {
+      // Handle any other errors gracefully
+      console.error('Session deserialization error:', error);
+      done(null, null); // Invalidate session instead of throwing error
     }
   });
 
