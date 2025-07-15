@@ -25,7 +25,11 @@ import PostSchedule from "@/pages/PostSchedule";
 import PostScheduleWizard from "@/pages/PostScheduleWizard";
 import UserDataDeletion from "@/pages/UserDataDeletion";
 import Login from "@/pages/Login";
+
 import I18nDemo from "@/pages/I18nDemo";
+import Features from "@/pages/Features";
+import SocialMedias from "@/pages/SocialMedias";
+import Pricing from "@/pages/Pricing";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -52,7 +56,11 @@ function Router() {
         <Route path="/post-schedule-wizard" component={PostScheduleWizard} />
         <Route path="/user-data-deletion" component={UserDataDeletion} />
         <Route path="/login" component={Login} />
+
         <Route path="/i18n-demo" component={I18nDemo} />
+        <Route path="/features" component={Features} />
+        <Route path="/social-medias" component={SocialMedias} />
+        <Route path="/pricing" component={Pricing} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

@@ -1032,10 +1032,6 @@ app.get(
   app.post('/api/images', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      //const imageData = insertImageSchema.parse({
-      //  ...req.body,
-      //  userId
-     // });
       
       // Handle both JSON and FormData uploads
       if (req.is('multipart/form-data')) {
@@ -1076,7 +1072,7 @@ app.get(
         const imageData = insertImageSchema.parse({
           ...req.body,
           userId,
-          originalName: req.body.originalName || req.body.filename || 'ai-generated-image.png'																		  
+          originalName: req.body.originalName || req.body.filename || 'ai-generated-image.png'
         });
         
         const image = await storage.createImage(imageData);
@@ -1771,6 +1767,53 @@ app.get(
     } catch (error: any) {
       console.error("Error deleting user account:", error);
       res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
+  // Onboarding routes
+  app.post('/api/onboarding', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('Onboarding data received for user:', userId, req.body);
+      
+      // Use the storage layer to save onboarding data
+      const updatedUser = await storage.saveOnboardingData(userId, req.body);
+      
+      res.json({ success: true, user: updatedUser });
+    } catch (error: any) {
+      console.error('Error saving onboarding data:', error);
+      res.status(500).json({ message: 'Failed to save onboarding data' });
+    }
+  });
+
+  app.post('/api/onboarding/complete', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('Completing onboarding for user:', userId, req.body);
+      
+      // Use the storage layer to complete onboarding
+      const updatedUser = await storage.completeOnboarding(userId, req.body);
+      
+      res.json({ success: true, user: updatedUser });
+    } catch (error: any) {
+      console.error('Error completing onboarding:', error);
+      res.status(500).json({ message: 'Failed to complete onboarding' });
+    }
+  });
+
+  // Test route to trigger onboarding wizard (for analysis purposes)
+  app.post('/api/onboarding/test-trigger', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      // Reset onboarding completion to trigger the wizard
+      await storage.updateUserProfile(userId, { 
+        onboardingCompleted: false,
+        onboardingData: null 
+      });
+      res.json({ success: true, message: 'Onboarding reset - wizard will show on next page load' });
+    } catch (error: any) {
+      console.error('Error resetting onboarding:', error);
+      res.status(500).json({ message: 'Failed to reset onboarding' });
     }
   });
   // Enhanced Facebook API key validation

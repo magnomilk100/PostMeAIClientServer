@@ -126,6 +126,10 @@ export interface IStorage {
   setVerificationToken(userId: string, token: string): Promise<void>;
   verifyEmail(token: string): Promise<User | null>;
   getUserByVerificationToken(token: string): Promise<User | null>;
+
+  // Onboarding operations
+  saveOnboardingData(userId: string, data: any): Promise<User>;
+  completeOnboarding(userId: string, data: any): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -787,6 +791,64 @@ export class DatabaseStorage implements IStorage {
       console.error('Error getting user by verification token:', error);
       return null;
     }
+  }
+
+  async saveOnboardingData(userId: string, data: any): Promise<User> {
+    const updateData: any = {};
+    
+    if (data.profileType) updateData.profileType = data.profileType;
+    if (data.fullName) {
+      const nameParts = data.fullName.split(' ');
+      updateData.firstName = nameParts[0];
+      updateData.lastName = nameParts.slice(1).join(' ');
+    }
+    if (data.role) updateData.role = data.role;
+    if (data.website) updateData.website = data.website;
+    if (data.companyName) updateData.companyName = data.companyName;
+    if (data.industry) updateData.industry = data.industry;
+    if (data.teamSize) updateData.teamSize = data.teamSize;
+    if (data.interestedPlatforms) updateData.interestedPlatforms = data.interestedPlatforms;
+    if (data.primaryGoals) updateData.primaryGoals = data.primaryGoals;
+    if (data.timezone) updateData.timezone = data.timezone;
+    if (data.language) updateData.language = data.language;
+
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return updatedUser;
+  }
+
+  async completeOnboarding(userId: string, data: any): Promise<User> {
+    const updateData: any = {
+      onboardingCompleted: true
+    };
+    
+    if (data.profileType) updateData.profileType = data.profileType;
+    if (data.fullName) {
+      const nameParts = data.fullName.split(' ');
+      updateData.firstName = nameParts[0];
+      updateData.lastName = nameParts.slice(1).join(' ');
+    }
+    if (data.role) updateData.role = data.role;
+    if (data.website) updateData.website = data.website;
+    if (data.companyName) updateData.companyName = data.companyName;
+    if (data.industry) updateData.industry = data.industry;
+    if (data.teamSize) updateData.teamSize = data.teamSize;
+    if (data.interestedPlatforms) updateData.interestedPlatforms = data.interestedPlatforms;
+    if (data.primaryGoals) updateData.primaryGoals = data.primaryGoals;
+    if (data.timezone) updateData.timezone = data.timezone;
+    if (data.language) updateData.language = data.language;
+
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return updatedUser;
   }
 }
 
