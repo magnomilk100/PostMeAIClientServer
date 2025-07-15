@@ -19,10 +19,7 @@ export default function EmailVerification({ email, onBack }: EmailVerificationPr
   const handleResendEmail = async () => {
     setIsResending(true);
     try {
-      await apiRequest('/api/auth/resend-verification', {
-        method: 'POST',
-        body: { email }
-      });
+      await apiRequest('POST', '/api/auth/resend-verification', { email });
       
       setEmailSent(true);
       toast({

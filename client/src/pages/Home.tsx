@@ -60,6 +60,17 @@ export default function Home() {
                 <Play className="w-5 h-5 mr-2" />
                 Watch Demo
               </Button>
+              
+              {/* Test button for onboarding wizard analysis */}
+              <Button 
+                size="lg"
+                variant="outline"
+                className="border-2 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 px-8 py-4 text-lg"
+                onClick={() => setLocation("/onboarding")}
+              >
+                <Bot className="w-5 h-5 mr-2" />
+                Test Onboarding Wizard
+              </Button>
             </div>
             
             <div className="flex items-center justify-center space-x-6 text-sm text-gray-500 dark:text-gray-400">

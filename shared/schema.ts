@@ -13,6 +13,16 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Workspaces table for multi-tenant system
+export const workspaces = pgTable("workspaces", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull(),
+  uniqueId: varchar("unique_id").unique().notNull(),
+  adminUserId: varchar("admin_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Updated users table for OAuth and local authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
@@ -25,6 +35,9 @@ export const users = pgTable("users", {
   authProvider: varchar("auth_provider").notNull().default("local"), // local, facebook, google, linkedin, github
   providerId: varchar("provider_id"), // ID from OAuth provider
   lastAuthMethod: varchar("last_auth_method"), // Track last used auth method
+  // Workspace association
+  workspaceId: integer("workspace_id").references(() => workspaces.id),
+  isWorkspaceAdmin: boolean("is_workspace_admin").default(false),
   // Billing and subscription fields
   credits: integer("credits").notNull().default(0),
   subscriptionPlan: varchar("subscription_plan"), // 'basic', 'pro', 'enterprise', etc.
@@ -62,6 +75,12 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false),
   verificationToken: varchar("verification_token"),
   verificationTokenExpiry: timestamp("verification_token_expiry"),
+  // Onboarding fields
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  profileType: varchar("profile_type"), // 'individual' or 'company'
+  role: varchar("role"), // for individuals
+  primaryGoals: jsonb("primary_goals"), // array of selected goals
+  interestedPlatforms: jsonb("interested_platforms"), // array of platform names
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -331,3 +350,13 @@ export type InsertPostSchedule = z.infer<typeof insertPostScheduleSchema>;
 export type PostSchedule = typeof postSchedules.$inferSelect;
 export type InsertScheduleExecution = z.infer<typeof insertScheduleExecutionSchema>;
 export type ScheduleExecution = typeof scheduleExecutions.$inferSelect;
+
+// Workspace schemas and types
+export const insertWorkspaceSchema = createInsertSchema(workspaces).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWorkspace = z.infer<typeof insertWorkspaceSchema>;
+export type Workspace = typeof workspaces.$inferSelect;

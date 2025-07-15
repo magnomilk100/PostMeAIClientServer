@@ -28,6 +28,7 @@ __export(schema_exports, {
   insertSocialMediaConfigSchema: () => insertSocialMediaConfigSchema,
   insertTemplateSchema: () => insertTemplateSchema,
   insertUserSchema: () => insertUserSchema,
+  insertWorkspaceSchema: () => insertWorkspaceSchema,
   localAuthSchema: () => localAuthSchema,
   paymentTransactions: () => paymentTransactions,
   postSchedules: () => postSchedules,
@@ -39,7 +40,8 @@ __export(schema_exports, {
   socialMediaConfigs: () => socialMediaConfigs,
   templates: () => templates,
   upsertUserSchema: () => upsertUserSchema,
-  users: () => users
+  users: () => users,
+  workspaces: () => workspaces
 });
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -53,6 +55,14 @@ var sessions = pgTable(
   },
   (table) => [index("IDX_session_expire").on(table.expire)]
 );
+var workspaces = pgTable("workspaces", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull(),
+  uniqueId: varchar("unique_id").unique().notNull(),
+  adminUserId: varchar("admin_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
 var users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
   email: varchar("email").unique(),
@@ -68,6 +78,9 @@ var users = pgTable("users", {
   // ID from OAuth provider
   lastAuthMethod: varchar("last_auth_method"),
   // Track last used auth method
+  // Workspace association
+  workspaceId: integer("workspace_id").references(() => workspaces.id),
+  isWorkspaceAdmin: boolean("is_workspace_admin").default(false),
   // Billing and subscription fields
   credits: integer("credits").notNull().default(0),
   subscriptionPlan: varchar("subscription_plan"),
@@ -109,6 +122,16 @@ var users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false),
   verificationToken: varchar("verification_token"),
   verificationTokenExpiry: timestamp("verification_token_expiry"),
+  // Onboarding fields
+  onboardingCompleted: boolean("onboarding_completed").default(false),
+  profileType: varchar("profile_type"),
+  // 'individual' or 'company'
+  role: varchar("role"),
+  // for individuals
+  primaryGoals: jsonb("primary_goals"),
+  // array of selected goals
+  interestedPlatforms: jsonb("interested_platforms"),
+  // array of platform names
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -343,6 +366,11 @@ var insertPostScheduleSchema = createInsertSchema(postSchedules).omit({
 var insertScheduleExecutionSchema = createInsertSchema(scheduleExecutions).omit({
   id: true,
   executedAt: true
+});
+var insertWorkspaceSchema = createInsertSchema(workspaces).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
 });
 
 // server/db.ts
@@ -766,6 +794,48 @@ var DatabaseStorage = class {
       return null;
     }
   }
+  async saveOnboardingData(userId, data) {
+    const updateData = {};
+    if (data.profileType) updateData.profileType = data.profileType;
+    if (data.fullName) {
+      const nameParts = data.fullName.split(" ");
+      updateData.firstName = nameParts[0];
+      updateData.lastName = nameParts.slice(1).join(" ");
+    }
+    if (data.role) updateData.role = data.role;
+    if (data.website) updateData.website = data.website;
+    if (data.companyName) updateData.companyName = data.companyName;
+    if (data.industry) updateData.industry = data.industry;
+    if (data.teamSize) updateData.teamSize = data.teamSize;
+    if (data.interestedPlatforms) updateData.interestedPlatforms = data.interestedPlatforms;
+    if (data.primaryGoals) updateData.primaryGoals = data.primaryGoals;
+    if (data.timezone) updateData.timezone = data.timezone;
+    if (data.language) updateData.language = data.language;
+    const [updatedUser] = await db.update(users).set(updateData).where(eq(users.id, userId)).returning();
+    return updatedUser;
+  }
+  async completeOnboarding(userId, data) {
+    const updateData = {
+      onboardingCompleted: true
+    };
+    if (data.profileType) updateData.profileType = data.profileType;
+    if (data.fullName) {
+      const nameParts = data.fullName.split(" ");
+      updateData.firstName = nameParts[0];
+      updateData.lastName = nameParts.slice(1).join(" ");
+    }
+    if (data.role) updateData.role = data.role;
+    if (data.website) updateData.website = data.website;
+    if (data.companyName) updateData.companyName = data.companyName;
+    if (data.industry) updateData.industry = data.industry;
+    if (data.teamSize) updateData.teamSize = data.teamSize;
+    if (data.interestedPlatforms) updateData.interestedPlatforms = data.interestedPlatforms;
+    if (data.primaryGoals) updateData.primaryGoals = data.primaryGoals;
+    if (data.timezone) updateData.timezone = data.timezone;
+    if (data.language) updateData.language = data.language;
+    const [updatedUser] = await db.update(users).set(updateData).where(eq(users.id, userId)).returning();
+    return updatedUser;
+  }
 };
 var storage = new DatabaseStorage();
 
@@ -986,7 +1056,44 @@ import { Strategy as GitHubStrategy } from "passport-github2";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import cors from "cors";
+
+// server/authConfig.ts
+var authConfig = {
+  // Enable/disable authentication globally
+  enabled: process.env.AUTH_ENABLED !== "false",
+  // Default to enabled unless explicitly disabled
+  // Optional: Skip authentication for specific routes
+  skipAuthRoutes: [
+    "/",
+    "/documentation",
+    "/watch-demo",
+    "/privacy-policy",
+    "/i18n-demo"
+  ],
+  // Default user for when auth is disabled
+  defaultUser: {
+    id: "anonymous",
+    email: "anonymous@example.com",
+    firstName: "Anonymous",
+    lastName: "User",
+    provider: "local",
+    providerId: "anonymous",
+    credits: 1e3,
+    subscriptionPlan: "pro",
+    subscriptionStatus: "active",
+    onboardingCompleted: true,
+    createdAt: /* @__PURE__ */ new Date(),
+    updatedAt: /* @__PURE__ */ new Date()
+  }
+};
+
+// server/auth.ts
 function setupAuth(app2) {
+  if (!authConfig.enabled) {
+    console.log("\u{1F513} Authentication is DISABLED - All users will be anonymous");
+    return;
+  }
+  console.log("\u{1F510} Authentication is ENABLED");
   app2.use(
     cors({
       origin: process.env.FRONTEND_URL || "http://localhost:5000",
@@ -1217,7 +1324,16 @@ function generateVerificationToken() {
 }
 async function sendVerificationEmail(email, token) {
   try {
-    const verificationUrl = `${process.env.NODE_ENV === "production" ? "https://postmeai.com" : "http://localhost:5000"}/auth/verify-email?token=${token}`;
+    const getBaseUrl = () => {
+      if (process.env.NODE_ENV === "production") {
+        return "https://postmeai.com";
+      }
+      if (process.env.REPLIT_DEV_DOMAIN) {
+        return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+      }
+      return "http://localhost:5000";
+    };
+    const verificationUrl = `${getBaseUrl()}/auth/verify-email?token=${token}`;
     const mailOptions = {
       from: process.env.EMAIL_USER || "PostMeAI <contact@postmeai.com>",
       to: email,
@@ -2762,6 +2878,41 @@ async function registerRoutes(app2) {
     } catch (error) {
       console.error("Error deleting user account:", error);
       res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+  app2.post("/api/onboarding", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      console.log("Onboarding data received for user:", userId, req.body);
+      const updatedUser = await storage.saveOnboardingData(userId, req.body);
+      res.json({ success: true, user: updatedUser });
+    } catch (error) {
+      console.error("Error saving onboarding data:", error);
+      res.status(500).json({ message: "Failed to save onboarding data" });
+    }
+  });
+  app2.post("/api/onboarding/complete", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      console.log("Completing onboarding for user:", userId, req.body);
+      const updatedUser = await storage.completeOnboarding(userId, req.body);
+      res.json({ success: true, user: updatedUser });
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
+      res.status(500).json({ message: "Failed to complete onboarding" });
+    }
+  });
+  app2.post("/api/onboarding/test-trigger", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      await storage.updateUserProfile(userId, {
+        onboardingCompleted: false,
+        onboardingData: null
+      });
+      res.json({ success: true, message: "Onboarding reset - wizard will show on next page load" });
+    } catch (error) {
+      console.error("Error resetting onboarding:", error);
+      res.status(500).json({ message: "Failed to reset onboarding" });
     }
   });
   app2.post("/api/social-media-configs/:platformId/test", requireAuth, async (req, res) => {

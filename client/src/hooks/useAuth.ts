@@ -45,15 +45,21 @@ export interface User {
   autoSave?: boolean | null;
   rememberLogin?: boolean | null;
   twoFactorAuth?: boolean | null;
+  // Onboarding fields
+  onboardingCompleted?: boolean | null;
+  profileType?: string | null;
+  role?: string | null;
+  primaryGoals?: string[] | null;
+  interestedPlatforms?: string[] | null;
 }
 
 export function useAuth() {
   const { data: user, isLoading, error, refetch } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: false,
-    staleTime: 0, // No cache to ensure fresh data
+    staleTime: 5000, // 5 seconds cache to prevent flash during onboarding
     refetchInterval: false, // Disable automatic refetching
-    refetchOnWindowFocus: true, // Enable refetch on window focus to catch login state changes
+    refetchOnWindowFocus: false, // Disable refetch on window focus to prevent flash
     refetchOnMount: true, // Refetch on component mount
     enabled: true, // Always enabled
   });

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Search, Bell, Rocket, Home, Edit, Layers, Image, Share2, Settings, Book, LogOut, Loader2, CreditCard, Crown, Video, Clock, X, Users, MessageSquare, AlertTriangle, CheckCircle, Globe, Menu, Calendar } from "lucide-react";
+import { Search, Bell, Rocket, Home, Edit, Layers, Image, Share2, Settings, Book, LogOut, Loader2, CreditCard, Crown, Video, Clock, X, Users, MessageSquare, AlertTriangle, CheckCircle, Globe, Menu, Calendar, Star, Shield } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import OnboardingWizard from "@/pages/OnboardingWizard";
 
 // Main business navigation (most important features)
 const businessNavigation = [
@@ -42,6 +43,14 @@ const learningHelpNavigation = [
   { name: "i18n Demo", href: "/i18n-demo", icon: Globe },
 ];
 
+// Institutional navigation for non-authenticated users
+const institutionalNavigation = [
+  { name: "Features", href: "/features", icon: Star },
+  { name: "Social Medias", href: "/social-medias", icon: Share2 },
+  { name: "Pricing", href: "/pricing", icon: CreditCard },
+  { name: "Privacy Policy", href: "/privacy-policy", icon: Shield },
+];
+
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -50,9 +59,27 @@ export default function Layout({ children }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
   const logoutMutation = useLogout();
   const { toast } = useToast();
   const isNavigationLoading = useNavigationLoading();
+  
+  // Check if user needs onboarding
+  const isPublicPath = location === '/login' || location === '/register' || location === '/user-data-deletion' || location === '/verify-email';
+  const needsOnboarding = isAuthenticated && user && user.id !== 'anonymous' && !user.onboardingCompleted && !isPublicPath;
+  
+  useEffect(() => {
+    if (needsOnboarding && !onboardingVisible) {
+      // Small delay to prevent flash during initial data load
+      const timer = setTimeout(() => {
+        setOnboardingVisible(true);
+      }, 150);
+      return () => clearTimeout(timer);
+    } else if (!needsOnboarding && onboardingVisible) {
+      // Hide onboarding when completed
+      setOnboardingVisible(false);
+    }
+  }, [needsOnboarding, onboardingVisible]);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -184,6 +211,21 @@ export default function Layout({ children }: LayoutProps) {
     return <PageLoading />;
   }
 
+  // Show onboarding modal if user needs to complete onboarding
+  if (needsOnboarding) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+        {/* Dark transparent background overlay */}
+        <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm transition-opacity duration-300" />
+        
+        {/* Centered modal content */}
+        <div className="relative z-10 w-full max-w-4xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 animate-scaleIn">
+          <OnboardingWizard />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
@@ -191,15 +233,17 @@ export default function Layout({ children }: LayoutProps) {
         <div className="flex items-center justify-between px-4 md:px-6 h-full">
           {/* Logo */}
           <div className="flex items-center space-x-3">
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
+            {/* Mobile Menu Button - Only show for authenticated users */}
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+            )}
             
             <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center animate-float shadow-lg">
               <Rocket className="text-white w-4 h-4" />
@@ -207,73 +251,87 @@ export default function Layout({ children }: LayoutProps) {
             <span className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent dark:bg-none dark:text-white">PostMe AI</span>
           </div>
           
-          {/* Enhanced Search with Database Integration - Hidden on mobile */}
-          {isAuthenticated && (
-            <div className="hidden md:flex flex-1 max-w-md mx-8 relative">
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Search templates, images, social media..."
-                  className="pl-10 pr-8"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  onFocus={() => searchQuery.length > 2 && setShowSearchResults(true)}
-                />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                {isSearching && (
-                  <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 animate-spin" />
-                )}
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setShowSearchResults(false);
-                    }}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                )}
-              </div>
-              
-              {/* Search Results Dropdown */}
-              {showSearchResults && Array.isArray(searchResults) && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-                  {searchResults.length > 0 ? (
-                    <div className="p-2">
-                      {searchResults.map((result: any) => {
-                        const IconComponent = result.type === 'template' ? Layers : 
-                                            result.type === 'image' ? Image : 
-                                            result.type === 'social_media' ? Share2 : Edit;
-                        return (
-                          <div
-                            key={`${result.type}-${result.id}`}
-                            className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
-                            onClick={() => handleSearchResultClick(result.type, result.id, result.name)}
-                          >
-                            <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{result.name}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{result.type.replace('_', ' ')}</p>
-                            </div>
-                            <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">
-                              {result.type}
-                            </Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No results found for "{searchQuery}"</p>
-                    </div>
+          {/* Center Navigation */}
+          <div className="flex-1 flex justify-center">
+            {isAuthenticated ? (
+              /* Enhanced Search with Database Integration - Hidden on mobile */
+              <div className="hidden md:flex flex-1 max-w-md mx-8 relative">
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Search templates, images, social media..."
+                    className="pl-10 pr-8"
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    onFocus={() => searchQuery.length > 2 && setShowSearchResults(true)}
+                  />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  {isSearching && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 animate-spin" />
+                  )}
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setShowSearchResults(false);
+                      }}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+                
+                {/* Search Results Dropdown */}
+                {showSearchResults && Array.isArray(searchResults) && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                    {searchResults.length > 0 ? (
+                      <div className="p-2">
+                        {searchResults.map((result: any) => {
+                          const IconComponent = result.type === 'template' ? Layers : 
+                                              result.type === 'image' ? Image : 
+                                              result.type === 'social_media' ? Share2 : Edit;
+                          return (
+                            <div
+                              key={`${result.type}-${result.id}`}
+                              className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
+                              onClick={() => handleSearchResultClick(result.type, result.id, result.name)}
+                            >
+                              <IconComponent className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{result.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{result.type.replace('_', ' ')}</p>
+                              </div>
+                              <Badge variant="outline" className="text-xs dark:border-gray-600 dark:text-gray-300">
+                                {result.type}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No results found for "{searchQuery}"</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Institutional Navigation for non-authenticated users */
+              <nav className="hidden md:flex items-center space-x-6">
+                {institutionalNavigation.map((item) => (
+                  <Link key={item.name} href={item.href}>
+                    <Button variant="ghost" size="sm" className="text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400">
+                      {item.name}
+                    </Button>
+                  </Link>
+                ))}
+              </nav>
+            )}
+          </div>
           
           {/* User Profile & Auth Actions */}
           <div className="flex items-center space-x-2 md:space-x-4">
@@ -402,16 +460,27 @@ export default function Layout({ children }: LayoutProps) {
               </>
             ) : (
               <div className="flex items-center space-x-2">
-                <Link href="/login">
-                  <Button variant="ghost" size="sm">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link href="/login">
-                  <Button size="sm">
-                    Get Started
-                  </Button>
-                </Link>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    console.log('Sign In clicked');
+                    window.location.href = '/login';
+                    //setLocation('/login');
+                  }}
+                >
+                  Sign In
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    console.log('Get Started clicked');
+                    window.location.href = '/login';
+                    //setLocation('/login');
+                  }}
+                >
+                  Get Started
+                </Button>
               </div>
             )}
           </div>
@@ -426,10 +495,27 @@ export default function Layout({ children }: LayoutProps) {
         />
       )}
 
-      {/* Sidebar - Responsive */}
-      <aside className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 transform transition-transform duration-300 ease-in-out ${
-        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-      } md:translate-x-0`}>
+      {/* Mobile Navigation Menu for non-authenticated users */}
+      {!isAuthenticated && (
+        <div className="md:hidden fixed top-16 left-0 right-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-40">
+          <nav className="p-4 space-y-2">
+            {institutionalNavigation.map((item) => (
+              <Link key={item.name} href={item.href}>
+                <Button variant="ghost" className="w-full justify-start text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400">
+                  <item.icon className="w-4 h-4 mr-2" />
+                  {item.name}
+                </Button>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
+
+      {/* Sidebar - Only show when authenticated */}
+      {isAuthenticated && (
+        <aside className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 transform transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0`}>
         <nav className="p-4 space-y-6">
           {/* Business Navigation Section */}
           <div className="space-y-1">
@@ -549,10 +635,11 @@ export default function Layout({ children }: LayoutProps) {
             </Button>
           )}
         </nav>
-      </aside>
+        </aside>
+      )}
 
       {/* Main Content */}
-      <main className="md:ml-64 pt-16 min-h-screen relative px-4 md:px-6 lg:px-8">
+      <main className={`pt-16 min-h-screen relative px-4 md:px-6 lg:px-8 ${isAuthenticated ? 'md:ml-64' : ''}`}>
         {/* Navigation Loading Overlay */}
         {isNavigationLoading && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -561,6 +648,13 @@ export default function Layout({ children }: LayoutProps) {
         )}
         {children}
       </main>
+
+      {/* Onboarding Modal Overlay */}
+      {onboardingVisible && (
+        <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center animate-fadeIn">
+          <OnboardingWizard />
+        </div>
+      )}
     </div>
   );
 }

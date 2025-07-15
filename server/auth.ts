@@ -12,8 +12,17 @@ import cors from "cors";
 
 import { storage } from "./storage";
 import { pool } from "./db";
+import { authConfig, createAuthMiddleware } from "./authConfig";
 
 export function setupAuth(app: Express) {
+  // Skip auth setup if authentication is disabled
+  if (!authConfig.enabled) {
+    console.log('🔓 Authentication is DISABLED - All users will be anonymous');
+    return;
+  }
+
+  console.log('🔐 Authentication is ENABLED');
+
   // ─── 1) CORS ───────────────────────────────────────────────────────────
   app.use(
     cors({

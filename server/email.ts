@@ -38,7 +38,18 @@ export function generateVerificationToken(): string {
 
 export async function sendVerificationEmail(email: string, token: string): Promise<boolean> {
   try {
-    const verificationUrl = `${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}/auth/verify-email?token=${token}`;
+    // Get the base URL for email verification
+    const getBaseUrl = () => {
+      if (process.env.NODE_ENV === 'production') {
+        return 'https://postmeai.com';
+      }
+      if (process.env.REPLIT_DEV_DOMAIN) {
+        return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+      }
+      return 'http://localhost:5000';
+    };
+    
+    const verificationUrl = `${getBaseUrl()}/auth/verify-email?token=${token}`;
     
     const mailOptions = {
       from: process.env.EMAIL_USER || 'PostMeAI <contact@postmeai.com>',
