@@ -106,7 +106,149 @@ The application supports content generation for:
 ## Changelog
 
 Changelog:
+- July 27, 2025. **LINKEDIN OAUTH CALLBACK URL FIXED**: Fixed LinkedIn OAuth callback URL configuration to work with both Replit and localhost environments:
+  - **DYNAMIC URL CONFIGURATION**: Updated LinkedIn OAuth to use same dynamic callback URL pattern as Google OAuth
+  - **REPLIT COMPATIBILITY**: LinkedIn callback URL now properly uses Replit domain (https://4f04f90a-e454-4abd-a22c-6683c4071a1c-00-2psprzejqlsdp.kirk.replit.dev/auth/linkedin/callback) instead of localhost
+  - **PRODUCTION READY**: Maintained production URL configuration (https://postmeai.com/auth/linkedin/callback) for deployment
+  - **API KEY FLOW FIXED**: Updated LinkedIn API key OAuth flow to use same dynamic URL pattern for Social Media page integration
+  - **CONSISTENT OAUTH PATTERN**: All OAuth providers (Google, Facebook, LinkedIn) now use consistent callback URL configuration
+  - **CHECKPOINT: LinkedIn OAuth now works properly in Replit environment with dynamic callback URL configuration**
+- July 26, 2025. **CRITICAL INVITATION ROLE ASSIGNMENT BUG FIXED**: Fixed invitation workflow to properly assign ALL selected workspace roles during invitation acceptance:
+  - **ROOT CAUSE IDENTIFIED**: Invitation system stored selected roles in invitation_workspace_roles table but only assigned first role during acceptance
+  - **FIXED ROLE ASSIGNMENT LOGIC**: Enhanced /api/invitation/set-password endpoint to assign ALL selected roles to user_workspace_roles table
+  - **COMPREHENSIVE ROLE MAPPING**: Added role name to role ID lookup and assignment for each selected workspace role
+  - **VERIFIED WORKING**: Test invitation with roles [creator, readonly, publisher, approver] correctly assigned all 4 roles to user
+  - **ADDED DEBUG LOGGING**: Console logs show successful role assignments: "🎯 INVITATION ROLE ASSIGNMENT - User: X, Workspace: Y, Role: Z (ID: N)"
+  - **MAINTAINED BACKWARD COMPATIBILITY**: Legacy userWorkspaces table still gets primary role assignment for compatibility
+  - **COMPREHENSIVE TESTING**: Verified invitation acceptance creates user with correct organization membership and all workspace roles
+  - **CHECKPOINT: Invitation role assignment workflow completely functional - selected roles during invitation are now properly assigned during acceptance**
+- July 26, 2025. Enhanced invitation workflow with automatic approval and history display:
+  - **STREAMLINED INVITATION FLOW**: Completely eliminated manual approval requirement - invited users can login immediately after completing invitation process
+  - **AUTOMATIC USER ACTIVATION**: Changed account status from 'pending_approval' to 'active' for invited users who complete invitation acceptance  
+  - **WORKSPACE MEMBERSHIP AUTO-ACTIVATION**: Set workspace memberships to isActive: true for invited users upon invitation completion
+  - **SUCCESS MESSAGING ENHANCED**: Updated InvitationAcceptance component to show "You can now sign in immediately" instead of pending approval messages
+  - **INVITATION HISTORY SECTION ADDED**: Implemented comprehensive "Invitation History" section on admin/invitations page displaying completed invitations
+  - **REAL-TIME HISTORY DISPLAY**: History section shows invitations with status 'password_set', 'approved', 'expired', or expired pending invitations immediately
+  - **ENHANCED TABLE INTERFACE**: Added table view with Email, Status, Invited date, Completed date, and Action columns for better invitation tracking
+  - **STATUS INDICATORS**: Added "Can Login Now" badge for password_set invitations and resend functionality for expired invitations
+  - **SORTED BY COMPLETION**: History displays most recently completed invitations first for better admin visibility
+  - **CHECKPOINT: Complete streamlined invitation workflow with automatic approval and comprehensive history tracking**
+- July 26, 2025. Fixed consent modal triggering for account creation:
+  - **CRITICAL BUG FIXED**: Consent modal no longer shows when users click "Create Account"
+  - Updated Login.tsx to remove consent requirement from registration process (onRegister function)
+  - Modified OAuth buttons (Google, Facebook, LinkedIn) to only trigger consent on "Sign In" tab, not "Get Started" tab
+  - Fixed activeTab onChange handler TypeScript error for proper tab switching
+  - **CONSENT AUDIT LOGGING COMPLETED**: Fully implemented consent audit logging with API endpoint (/api/consent/log) and database integration
+  - Enhanced ConsentModal to log all consent decisions (accept all, accept current, customize, reject) to database
+  - Created consent_audit_log table with proper indexes for GDPR/CCPA compliance tracking
+  - **CHECKPOINT: Consent modal now properly appears only on login attempts with complete audit trail**
+- July 26, 2025. Complete GDPR/CCPA-compliant consent modal implementation:
+  - **NEW FEATURE**: Implemented comprehensive ConsentModal.tsx following Google/Facebook privacy patterns
+  - Created detailed TermsOfUse.tsx page with legal sections and professional layout
+  - Added consent persistence system using localStorage to prevent repeated modal display
+  - Implemented mandatory cookie acceptance (authentication/session) with disabled toggle switches
+  - Added optional cookie toggles for analytics, personalization, and marketing with user control
+  - Required Privacy Policy and Terms of Use acceptance checkboxes with external link functionality
+  - Enhanced Login.tsx with consent checking: blocks all authentication until consent is provided
+  - Updated OAuth login handlers (Google, Facebook, LinkedIn) to enforce consent requirement
+  - Added consent status hooks (useConsentStatus) for cross-component consent management
+  - **4-BUTTON SYSTEM**: "Accept All", "Accept Current Configuration", "Customize Preferences", "Don't Accept Privacy Policy and Terms of Use"
+  - **ENHANCED UX**: Added descriptive text under each button explaining action and consequences
+  - **IMPROVED STYLING**: All buttons use consistent gradient backgrounds (green, blue, purple, red) with shadow effects
+  - **CONDITIONAL WARNING**: Amber warning message hides when both Privacy Policy and Terms of Use checkboxes are checked
+  - **DEFAULT ACTIVE**: All optional cookies (analytics, personalization, marketing) are enabled by default for better UX
+  - **ENHANCED**: Added close button (X) that closes modal without action as requested
+  - **ENHANCED**: Made modal more compact with reduced padding and spacing to minimize scroll bars
+  - Complete visual design with color-coded sections, badges, and professional styling
+  - Enhanced user privacy controls with toggle switches and clear consent messaging
+  - **CHECKPOINT: Production-ready privacy compliance system following major tech platform standards**
+- July 25, 2025. Fixed platform filtering issue and removed platform selection step:
+  - **RESOLVED**: Fixed critical PostgreSQL UNDEFINED_VALUE error in folders API by adding missing organizationId parameter
+  - **FIXED**: Platform filtering bug - identified ManualPostWizard was missing Step 2 (platform selection) entirely
+  - **REMOVED**: Completely removed platform selection step per user request - manual posts no longer require platform selection
+  - **RESTRUCTURED**: Renumbered wizard steps from 7 to 6 steps: Post Content → Image/Video → Links → Schedule Config → Schedule Summary → Final Step
+  - **UPDATED**: Updated step validation logic to match new step numbers (Schedule validation moved from step 5 to step 4)
+  - ManualPostWizard now flows cleanly without platform selection interruption
+  - **CHECKPOINT: Complete manual post wizard restructure with platform selection removed**
+- July 22, 2025. Complete organization role-based workspace filtering in left menu implementation:
+  - **NEW FEATURE**: Implemented workspace filtering in WorkspaceSwitcher component based on organization role
+  - Organization owners now see ALL workspaces in organization via `/api/admin/workspaces` endpoint
+  - Organization members see only workspaces where they have any role via `/api/workspaces` endpoint
+  - Added proper data transformation to handle different endpoint response structures
+  - Enhanced TypeScript typing with AdminWorkspace interface for admin endpoint data
+  - Added visual role indicators and proper null checking for improved UX
+  - **VERIFIED WORKING**: Current member user correctly fetches only assigned workspaces, owner users will see all workspaces
+  - **CHECKPOINT: Complete workspace visibility filtering based on organization role**
+- July 22, 2025. Complete admin access system overhaul and workspace-based permission implementation:
+  - **CRITICAL BUG FIXED**: Completely replaced all legacy userRole-based admin checks with workspace-based permission system
+  - Created comprehensive hasAdminAccess helper function checking both organization ownership and workspace administrator roles
+  - Updated ALL admin API endpoints (15+ endpoints) to use new hasAdminAccess function instead of userRole === 'administrator'
+  - Fixed requireAdmin middleware to properly check workspace administrator privileges
+  - Enhanced admin privilege validation across invitation, user management, workspace, and search endpoints  
+  - Users with Administrator role in any workspace can now properly access ADMINISTRATION menu and admin features
+  - Organization owners maintain full access to all workspaces and admin functionality as designed
+  - Fixed server compilation issues by removing duplicate variable declarations
+  - **CHECKPOINT: Complete workspace-based admin access system working properly with proper role-based access control**
+- January 19, 2025. Enhanced invitation acceptance with social media OAuth integration:
+  - Added social media authentication options (Google, Facebook, LinkedIn) to invitation acceptance page
+  - Implemented OAuth invitation flow: invitation links now support direct social media signup
+  - Modified OAuth routes to handle invitation keys via query parameters
+  - Added session storage for invitation keys during OAuth authentication process
+  - Enhanced invitation acceptance to support both manual account creation and OAuth signup
+  - Users can now complete invitation workflow using existing social media accounts
+  - Added proper TypeScript session extension for invitation key storage
+  - **CHECKPOINT: Complete invitation system supporting both manual and OAuth account creation**
+- January 18, 2025. Fixed onboarding completion UI refresh issue:
+  - Enhanced onboarding completion mutation to invalidate all related queries: user, organization, workspace, and workspaces
+  - Updated OrganizationSwitcher component to use staleTime: 0 with refetchOnMount and refetchOnWindowFocus for immediate data refresh
+  - Updated WorkspaceSwitcher component to use staleTime: 0 with refetchOnMount and refetchOnWindowFocus for immediate data refresh
+  - Fixed sidebar components to display organization and workspace information immediately after onboarding completion
+  - No longer requires page refresh to see updated organization/workspace data in sidebar
+  - Enhanced query invalidation system ensures all UI components refresh with fresh data automatically
+  - **CHECKPOINT: Complete onboarding flow with automatic sidebar refresh - no page reload needed**
+- January 18, 2025. Enhanced workspace role management system implementation:
+  - Updated database schema to standardize role names: 'admin' → 'administrator' for consistency
+  - Implemented color-coded workspace role display system with distinct colors for each role type:
+    * Administrator: Red (bg-red-500)
+    * Post Approver: Orange (bg-orange-500) 
+    * Post Publisher: Green (bg-green-500)
+    * Post Creator: Blue (bg-blue-500)
+    * ReadOnly: Gray (bg-gray-500)
+  - Redesigned AdminUserManagement page layout removing legacy "Role" and "Admin" columns
+  - Enhanced workspace roles column with improved visual hierarchy and organization owner badges
+  - Added standardized display names for roles (e.g., "Post Approver" instead of "approver")
+  - Updated role assignment dialog with color-coded role badges for better visual identification
+  - Improved UI with better spacing, visual feedback, and user-friendly role management
+  - Updated AdminInvitation page to use workspace roles from database instead of hardcoded options
+  - **CHECKPOINT: Complete workspace role system with standardized naming and color-coded visual design**
+- January 18, 2025. Complete organization owner protection system implementation:
+  - Added comprehensive backend storage methods for organization owner validation (getOrganizationOwners, getUserOrganization, countOrganizationOwners)
+  - Implemented API protection in admin routes preventing role changes for the last organization owner
+  - Added backend validation to prevent removing organization owners without first demoting their role
+  - Enhanced AdminUserManagement frontend with yellow crown badges to identify organization owners
+  - Added permission-based UI controls: only organization owners can see Remove buttons
+  - Created informational cards explaining organization owner protection rules and user permissions
+  - Added contextual warnings in edit dialogs when modifying organization owners
+  - Implemented user role-based access control ensuring member-level users cannot remove other users
+  - **CHECKPOINT: Complete organization owner protection system ensuring every organization maintains at least one owner**
+- July 18, 2025. Fixed database issues and role system inconsistencies:
+  - Resolved UNDEFINED_VALUE database errors by switching from unstable Neon serverless to postgres-js driver
+  - Fixed admin workspaces endpoint by correcting workspace owner reference to use organization owner
+  - Fixed user search functionality to use proper workspace roles system (userWorkspaceRoles table)
+  - Cleaned up duplicate role assignments in database ensuring one role per user per workspace
+  - Updated search function to show correct workspace roles (administrator, creator, publisher, etc.) instead of legacy role names
+  - **CHECKPOINT: Stable database connection with consistent role system**
 - June 26, 2025. Initial setup
+- January 15, 2025. Complete password reset system implementation:
+  - Created comprehensive ForgotPassword and ResetPassword pages with modern UI design
+  - Implemented secure 6-digit verification code system with 1-hour expiration
+  - Added password reset database fields (resetToken, resetTokenExpiry) to user schema
+  - Built secure email delivery system using existing SMTP configuration (contact@postmeai.com)
+  - Added password reset API endpoints with proper validation and error handling
+  - Enhanced Login page with "Forgot Password" link and proper navigation
+  - System includes security measures: tokens expire after 1 hour, emails don't reveal account existence
+  - Complete two-step flow: email verification → password reset with proper user feedback
+  - **CHECKPOINT: Production-ready password reset system with secure email delivery**
 - June 26, 2025. Enhanced UI components:
   - Added Lucide React icons to sidebar navigation
   - Improved Social Media page with API key management and visibility toggles
@@ -706,6 +848,114 @@ Changelog:
   - Added explanatory note clarifying that platform configurations are content format preferences, not actual content
   - All configuration data now displays in organized, non-technical format suitable for non-developer users
   - **CHECKPOINT: Complete Config Details modal user-friendly transformation with no JSON visible to users**
+- January 16, 2025. Fixed critical invitation acceptance API error:
+  - Corrected apiRequest function usage in InvitationAcceptance.tsx - method parameter must be first, not in options object
+  - Enhanced createLocalUser method to accept additional fields (userRole, accountStatus, emailVerified) for invitation workflow
+  - Updated IStorage interface to support extended createLocalUser signature with optional invitation-specific fields
+  - Fixed "Failed to set password" error that occurred when completing invitation signup process
+  - Resolved duplicate user creation issue by adding user existence check with update logic for existing users
+  - Added proper error handling for repeated invitation acceptance attempts
+  - Verified complete invitation flow: email invitation → password setup → pending admin approval
+  - **CHECKPOINT: Complete invitation acceptance functionality with proper API integration and duplicate handling**
+- January 16, 2025. Enhanced onboarding wizard with auto-detection and navigation improvements:
+  - Implemented auto-detection of timezone and language from browser settings as default values in Step 6
+  - Added proper navigation functionality to all Edit buttons in Step 7:
+    * Profile information Edit button → navigates to Step 3
+    * Interested Platforms Edit button → navigates to Step 4  
+    * Primary Goals Edit button → navigates to Step 5
+    * Preferences Edit button → navigates to Step 6
+  - Enhanced initial state setup to use browser's detected language instead of hardcoded 'en'
+  - Maintained existing "Auto-detect from browser" button functionality for manual re-detection
+  - Users can now seamlessly navigate between steps for editing without losing data
+  - **CHECKPOINT: Complete onboarding wizard with auto-detection and step navigation**
+- January 17, 2025. Complete workspace data isolation implementation:
+  - Fixed all API endpoints to enforce complete workspace data isolation
+  - Added workspace filtering to all data access methods: posts, schedulers, images, videos, templates, folders, social media configs
+  - Updated search functionality to filter results by current workspace context
+  - Fixed image upload functionality with proper workspace parameter integration
+  - Enhanced template management with workspace-specific content access
+  - Updated user account deletion to properly handle data across all workspaces
+  - Verified complete data separation: users in Workspace X cannot access any content from Workspace Y
+  - All invitation history, roles, and permissions now properly scoped to workspace context
+  - **CHECKPOINT: Complete workspace multi-tenancy with total data isolation between workspaces**
+- January 17, 2025. Database schema reset and workspace isolation completion:
+  - Completely dropped and recreated all database tables with proper workspace isolation constraints
+  - Implemented workspace ownership model with organization key + user key combination
+  - Created comprehensive workspace-isolated database schema with proper foreign key relationships
+  - Updated storage interface to support complete workspace data separation with user filtering
+  - Fixed all workspace-related API methods to enforce proper data isolation
+  - All resources (posts, images, templates, schedules, folders, social media configs) now fully isolated per workspace
+  - Enhanced invitation system to be workspace-specific with proper access controls
+  - Database indexes created for optimal workspace-filtered query performance
+  - **CHECKPOINT: Complete database restructure with workspace isolation model fully implemented**
+- January 18, 2025. Complete workspace visibility system and critical error fixes:
+  - Fixed critical WorkspaceSwitcher component crash caused by null workspace data mapping
+  - Implemented proper workspace visibility logic for both main and admin API endpoints
+  - Organization owners now see ALL workspaces in their organization (complete visibility)
+  - Non-owners see only workspaces where they were explicitly invited and approved
+  - Fixed apiRequest function call syntax error in WorkspaceSwitcher (method parameter order)
+  - Added comprehensive error handling with loading states and null checking
+  - Enhanced workspace switching functionality with proper authentication context
+  - Added debug logging to track organization role detection and workspace filtering
+  - **CHECKPOINT: Complete workspace visibility system with organization-based access control**
+- January 18, 2025. Critical database and API fixes:
+  - Fixed user invitation system by adding missing organizationId field to invitation creation
+  - Resolved "null value in column organization_id" constraint violation error
+  - Fixed image upload display issues by updating getImagesByFolder method signature
+  - Added missing getCurrentOrganizationId helper function to routes.ts
+  - Updated shared schema to include organizationId and expiresAt fields in user invitations
+  - Fixed API routes to properly handle workspace and organization context with proper filtering
+  - Corrected getImagesByFolder method to use folderId (integer) instead of folder (string)
+  - All image operations now work correctly with proper workspace data isolation
+  - Fixed user invitation approval by importing missing userWorkspaces schema and 'and' operator
+  - Resolved "userWorkspaces is not defined" error in approve-invitation endpoint
+  - Fixed administrator workspace access: Added user to all workspaces with admin role
+  - Updated workspace/current API to return user's specific workspace role (currentUserRole field)
+  - Enhanced WorkspaceStatus component to show user's workspace role instead of organization role
+  - Resolved "Error loading workspace information" for administrator users
+  - **CHECKPOINT: Complete database and API fixes for image management, user invitations, and administrator workspace access**
+- January 17, 2025. Registration system fixes and email verification completion:
+  - Fixed "Registration Failed, Invalid registration data" error by adding missing localAuthSchema validation
+  - Created localAuthSchema with proper email, password, confirmPassword, firstName, lastName validation
+  - Added missing verificationToken and verificationTokenExpiry fields to users table schema
+  - Fixed setVerificationToken method SQL syntax error that was preventing verification email flow
+  - Updated database schema and added missing columns for email verification system
+  - Complete registration flow now working: registration → email verification → login security
+  - Email verification system sending emails successfully with proper SMTP configuration
+  - Login correctly prevents access until email is verified with appropriate error messaging
+  - **CHECKPOINT: Complete registration and email verification system working perfectly**
+- January 17, 2025. Comprehensive workspace creation during onboarding implementation:
+  - Extended onboarding flow from 7 to 8 steps to include workspace creation
+  - Added workspace name collection in new OnboardingStep7 with automatic name suggestions
+  - Enhanced OnboardingStep8 (formerly Step7) as comprehensive review step showing all user inputs
+  - Updated OnboardingData interface to include workspaceName field with proper validation
+  - Implemented automatic workspace creation during onboarding completion:
+    * Creates workspace with unique ID and proper settings
+    * Automatically sets first user as workspace administrator
+    * Assigns active account status and administrator role
+    * Links user to workspace as the primary administrator
+  - Enhanced admin interface with workspace context display and pending approval explanations
+  - First user now automatically becomes administrator with full workspace privileges
+  - **CHECKPOINT: Complete workspace creation during onboarding with automatic administrator assignment**
+- January 17, 2025. Fixed invitation system workspace isolation:
+  - Fixed "workspace_id" null constraint violation in user_invitations table
+  - Updated createUserInvitation route to include current workspace ID from inviter
+  - Fixed invitation system to properly enforce workspace isolation
+  - All invitations now properly scoped to specific workspace context
+  - **CHECKPOINT: Complete invitation system with workspace isolation working**
+- January 17, 2025. Comprehensive workspace creation during onboarding implementation:
+  - Extended onboarding flow from 7 to 8 steps to include workspace creation
+  - Added workspace name collection in new OnboardingStep7 with automatic name suggestions
+  - Enhanced OnboardingStep8 (formerly Step7) as comprehensive review step showing all user inputs
+  - Updated OnboardingData interface to include workspaceName field with proper validation
+  - Implemented automatic workspace creation during onboarding completion:
+    * Creates workspace with unique ID and proper settings
+    * Automatically sets first user as workspace administrator
+    * Assigns active account status and administrator role
+    * Links user to workspace as the primary administrator
+  - Enhanced admin interface with workspace context display and pending approval explanations
+  - First user now automatically becomes administrator with full workspace privileges
+  - **CHECKPOINT: Complete workspace creation during onboarding with automatic administrator assignment**
 - January 6, 2025. Complete database synchronization for Post Schedule social media connection status:
   - Fixed critical data synchronization issue between Social Media page and Post Schedule page
   - Implemented real-time database fetching with staleTime: 0 for immediate fresh data retrieval
@@ -912,9 +1162,17 @@ Changelog:
   - **CHECKPOINT: Complete full-width layout with enhanced text readability across all major pages**
 - January 9, 2025. Google OAuth 2.0 authentication implementation:
   - Successfully configured Google OAuth 2.0 authentication with provided credentials (Client ID: 325510328084-p45i75oqqq95156rpi8vaeq1eca2q9lb.apps.googleusercontent.com)
-  - Updated callback URL configuration to support production deployment (https://www.postmeai.com/auth/google/callback)
+  - Updated callback URL configuration to support production deployment (https://postmeai.com/auth/google/callback)
   - Enhanced Login page to prominently feature Google Sign-In as the primary authentication method
   - Reorganized OAuth providers with Google at the top, followed by other social authentication options
+- January 18, 2025. Complete workspace visibility rules and user email display implementation:
+  - Fixed workspace visibility rules in left menu based on organization ownership:
+    * Organization owners see ALL workspaces in their organization (complete visibility)
+    * Non-owners see only workspaces where they are explicitly invited/approved (restricted visibility)
+    * Each workspace shows user's specific role in that workspace (not organization-wide role)
+  - Enhanced `/api/workspaces` endpoint with proper access control logic and role-based filtering
+  - Added logged user email display to home page welcome message with proper styling and emphasis
+  - **CHECKPOINT: Complete workspace isolation with proper access controls and enhanced user identification**
   - Google OAuth now appears as a large, prominent button with clear "Continue with Google" messaging
   - Fixed platform toggle state persistence issue in Post Schedule Wizard where user changes weren't maintained between steps
   - All 7 social media platforms (Facebook, Instagram, LinkedIn, TikTok, YouTube, Discord, Telegram) now properly preserve toggle states
@@ -945,6 +1203,14 @@ Changelog:
   - Updated help section with LinkedIn OAuth2 setup instructions and redirect URL configuration
   - **CHECKPOINT: Complete LinkedIn OAuth2 integration for Social Media platform configuration**
   - Enhanced server logging with LinkedIn OAuth configuration details
+- January 16, 2025. Complete workspace multi-tenancy architecture implementation:
+  - Completed comprehensive database migration and storage layer refactoring for workspace multi-tenancy
+  - Successfully updated authentication middleware to include workspace context and added getCurrentWorkspaceId helper
+  - Updated all storage methods (posts, templates, folders, images, schedules, social configs, payments) with workspace filtering
+  - Systematically updated all API routes to use workspace context ensuring complete multi-tenancy isolation
+  - All storage operations now properly filter by workspace ID ensuring secure data separation across workspaces
+  - Workspace roles established: owner, admin, member, viewer with different permission levels
+  - **CHECKPOINT: Complete backend workspace multi-tenancy architecture with secure data isolation**
   - All three major OAuth providers now prominently displayed: Google, Facebook, and LinkedIn
   - **CHECKPOINT: Complete LinkedIn OAuth 2.0 integration with professional styling and comprehensive documentation**
 - January 11, 2025. User Data Deletion feature implementation:
@@ -957,6 +1223,49 @@ Changelog:
   - Implemented glassmorphism design with red/orange warning themes and modern UI components
   - Complete user data deletion workflow: Settings → Delete Account → Confirmation → Permanent deletion
   - **CHECKPOINT: Complete user data deletion system with secure confirmation and comprehensive data removal**
+- January 15, 2025. Session deserialization error handling and onboarding modal improvements:
+  - Fixed "Failed to deserialize user out of session" error by implementing graceful session invalidation
+  - Updated passport.deserializeUser to return null instead of throwing errors when user is deleted
+  - Added middleware to detect and destroy stale sessions automatically
+  - Enhanced auth/user endpoint to properly handle session cleanup for deleted users
+- January 16, 2025. Complete Admin User Invitation Flow implementation:
+  - Created comprehensive AdminInvitation.tsx page with invitation management, pending approvals, and history
+  - Built InvitationAcceptance.tsx page with password setup and account creation workflow
+  - Added admin invitation routes to App.tsx (/admin/invitations, /invitation/:key)
+  - Enhanced sidebar navigation with admin-only menu filtering based on user role
+  - Implemented role-based access control for admin features
+  - Updated magnobrasil2013@gmail.com user role to 'admin' for testing admin functionality
+  - Complete multi-step workflow: Admin invitation → Email → Password setup → Admin approval → Account activation
+  - Implemented smooth onboarding modal transitions with fadeIn animation (0.3s duration)
+  - Added state management system to prevent modal flash/flicker during authentication
+- January 17, 2025. Fixed critical invitation system authentication and approval workflow:
+  - Fixed authentication middleware to prevent pending users from logging in until administrator approval
+  - Enhanced invitation acceptance to automatically add invited users to inviter's workspace
+  - Set invited users to skip onboarding process (onboardingCompleted = true)
+  - Fixed admin approval process to properly activate user accounts and workspace memberships
+  - Updated user role consistency from 'admin' to 'administrator' throughout the system
+  - Fixed database column references (isActive instead of status) in approval workflow
+  - Enhanced invitation password setup to prevent duplicate workspace memberships
+  - Updated AdminInvitation component to use 'administrator' role instead of 'admin'
+  - **CHECKPOINT: Complete invitation system with proper authentication flow and role consistency**
+- January 17, 2025. Complete workspace management system with validation and navigation:
+  - Fixed workspace creation HTTP method errors in AdminWorkspaceManagement.tsx API calls
+  - Added workspace unique ID generation to prevent database constraint violations
+  - Implemented duplicate workspace name validation for both create and update operations
+  - Added workspace switching functionality with dedicated API endpoint and UI button
+  - Fixed automatic workspace membership creation for workspace creators
+  - Enhanced AdminWorkspaceManagement with Switch button for workspace navigation
+  - All workspace operations now work properly with proper error handling and user feedback
+  - Added workspace deletion confirmation requiring user to type workspace name before deletion
+  - Fixed workspace switching functionality by updating session data after database changes
+  - Fixed modal closing issue with proper state management and form reset
+  - Fixed workspace deletion foreign key constraint issues with proper cascade deletion
+  - **CRITICAL FIX: Workspace switching now reads current workspace directly from database instead of session**
+  - Enhanced cache invalidation with immediate refetch for real-time UI updates
+  - **CHECKPOINT: Complete workspace management system with working switching, deletion, and enhanced security features**
+  - Created centered modal with dark gray transparent background overlay
+  - Added 150ms delay for smooth appearance without visual glitches
+  - **CHECKPOINT: Complete session error handling and smooth onboarding modal experience**
 - January 8, 2025. PostSchedule page UI improvements and layout optimization:
   - Enhanced platform icons from h-4 w-4 to h-6 w-6 for better visibility and visual impact
   - Improved AI Generated badge text from "AI Generated" to "AI Generated Content" for better descriptive clarity
@@ -1092,8 +1401,7 @@ Changelog:
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
-- January 14, 2025. Complete password strength validation system implementation:
+Preferred communication style: Simple, everyday language.- January 14, 2025. Complete password strength validation system implementation:
   - Added real-time password strength validation with 6 security requirements (length, uppercase, lowercase, digit, special character, no common passwords)
   - Implemented visual feedback system with green checkmarks appearing as each requirement is met
   - Created comprehensive common password detection blocking "password", "123456", sequential patterns, and repetitive patterns
@@ -1102,3 +1410,47 @@ Preferred communication style: Simple, everyday language.
   - Fixed empty password field validation to show all requirements as unchecked initially
   - Created EMAIL_CONFIGURATION.md guide with complete SMTP setup instructions for all major email providers
   - **CHECKPOINT: Complete password security system with real-time validation and comprehensive email configuration documentation**
+- January 14, 2025. Fixed onboarding modal reopening issue:
+  - Fixed backend onboarding completion endpoint to properly save onboardingCompleted flag to database
+  - Added early return logic to prevent modal rendering if user has already completed onboarding
+  - Added loading state check to prevent modal flashing during user data loading
+  - Removed recursive useEffect that was causing modal reopening after completion
+  - Direct navigation to home after successful completion instead of modal state manipulation
+  - Added proper modal close handler for manual close attempts
+  - **CHECKPOINT: Complete onboarding modal fix with proper database persistence**
+- January 14, 2025. Fixed Sign In/Get Started button responsiveness after signup:
+  - Fixed React hooks error by moving all hooks to the top of OnboardingWizard component before conditional returns
+  - Removed page reload after registration that was causing button unresponsiveness
+  - Enhanced authentication state management to update immediately after registration
+  - Replaced Link components with direct onClick handlers using setLocation('/login') for immediate navigation
+  - Added console logging to debug button click events
+  - Sign In and Get Started buttons now work properly immediately after user signup
+  - **CHECKPOINT: Complete button responsiveness fix with direct navigation implementation**
+- January 15, 2025. Fixed email verification resend functionality:
+  - Fixed apiRequest function call parameters in EmailVerification component
+  - Corrected function signature from object format to direct parameters (method, url, data)
+  - Email verification resend button now works properly with correct API call
+  - Backend route /api/auth/resend-verification is correctly configured and functional
+  - **CHECKPOINT: Complete email verification resend functionality fix**
+- January 15, 2025. Final fix for Sign In/Get Started buttons after signup:
+  - Replaced setLocation() with window.location.href = '/login' for forced navigation
+  - Used same approach as working "Back to Login" button for consistent behavior
+  - Header buttons now properly navigate to login page regardless of current page state
+  - **CHECKPOINT: Complete header button navigation fix with forced page navigation**
+- January 15, 2025. Fixed onboarding modal flash issue:
+  - Converted onboarding from page navigation to overlay modal in Layout component
+  - Removed navigation-based onboarding redirection that caused flash
+  - Onboarding now appears as overlay modal without page changes
+  - Removed /onboarding route and converted OnboardingWizard to Card component
+  - Eliminated all flash effects during onboarding appearance and completion
+  - **CHECKPOINT: Complete flash-free onboarding modal overlay implementation**
+- January 18, 2025. Enhanced multi-tenancy best practices implementation:
+  - Added comprehensive multi-tenancy middleware enforcing organization and workspace isolation at database layer
+  - Implemented composite database indexes for optimal performance: organization_id + workspace_id queries
+  - Enhanced invitation system to allow users to be members of multiple workspaces within same organization
+  - Added validateTenantAccess function to verify user permissions before data access
+  - Updated all storage methods to enforce workspace-specific data filtering with proper security
+  - Added comprehensive composite indexes: posts_workspace_user_idx, folders_org_workspace_idx, images_workspace_user_idx
+  - Fixed invitation workflow to prevent duplicate workspace invitations while allowing cross-workspace invitations
+  - Enhanced database schema with proper foreign key constraints and unique workspace name constraints
+  - **CHECKPOINT: Complete multi-tenancy architecture with enterprise-grade security and isolation**

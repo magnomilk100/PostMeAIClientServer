@@ -12,7 +12,7 @@ import { Loader2, LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import EmailVerification from './EmailVerification';
 import PasswordStrengthCheck from "@/components/PasswordStrengthCheck";
 import { createPasswordRequirements, validatePassword, isPasswordStrong, type PasswordRequirement } from "@/utils/passwordValidation";
@@ -25,17 +25,26 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string().min(8, "Password confirmation is required"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
 type RegisterForm = z.infer<typeof registerSchema>;
 
-export default function Login() {
+interface LoginProps {
+  initialTab?: "login" | "register";
+  focusField?: "email" | "firstName";
+}
+
+export default function Login({ initialTab = "login", focusField = "email" }: LoginProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("login");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [showPassword, setShowPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [loginPassword, setLoginPassword] = useState("");
@@ -46,18 +55,23 @@ export default function Login() {
   const emailRef = useRef<HTMLInputElement>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
   
-  // Auto-focus on appropriate field when tab changes
+  // Auto-focus on appropriate field when tab changes or component mounts
   useEffect(() => {
     const timer = setTimeout(() => {
       if (activeTab === "login" && emailRef.current) {
         emailRef.current.focus();
-      } else if (activeTab === "register" && firstNameRef.current) {
-        firstNameRef.current.focus();
+      } else if (activeTab === "register") {
+        if (focusField === "firstName" && firstNameRef.current) {
+          firstNameRef.current.focus();
+        } else if (focusField === "email" && emailRef.current) {
+          emailRef.current.focus();
+        }
       }
     }, 150);
     
     return () => clearTimeout(timer);
-  }, [activeTab]);
+  }, [activeTab, focusField]);
+
   // Handle password strength validation
   const handlePasswordChange = (password: string) => {
     setRegisterPassword(password);
@@ -82,6 +96,7 @@ export default function Login() {
     defaultValues: {
       email: "",
       password: "",
+      confirmPassword: "",
       firstName: "",
       lastName: "",
     },
@@ -99,8 +114,6 @@ export default function Login() {
         // Add a slight delay to ensure auth state updates
         setTimeout(() => {
           setLocation("/");
-          // Force page refresh to ensure auth state is properly loaded
-          window.location.reload();
         }, 100);
       },
       onError: (error: any) => {
@@ -310,17 +323,26 @@ export default function Login() {
                       </>
                     )}
                   </Button>
-                  <p className="text-sm text-gray-600 text-center mt-3">
-                    Don't have an account? Choose "Get Started" or{" "}
-                    <button 
-                      type="button"
-                      onClick={() => setActiveTab("register")}
-                      className="text-primary hover:underline font-medium"
-                    >
-                      click here
-                    </button>
-                    .
-                  </p>
+                  <div className="space-y-2 mt-3">
+                    <p className="text-sm text-gray-600 text-center">
+                      <Link href="/forgot-password">
+                        <Button variant="link" className="p-0 h-auto text-sm">
+                          Forgot your password?
+                        </Button>
+                      </Link>
+                    </p>
+                    <p className="text-sm text-gray-600 text-center">
+                      Don't have an account? Choose "Get Started" or{" "}
+                      <button 
+                        type="button"
+                        onClick={() => setActiveTab("register")}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        click here
+                      </button>
+                      .
+                    </p>
+                  </div>
                 </form>
               </TabsContent>
 
@@ -386,6 +408,20 @@ export default function Login() {
                       <p className="text-sm text-destructive">{registerForm.formState.errors.password.message}</p>
                     )}
                     <PasswordStrengthCheck requirements={passwordRequirements} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-confirmPassword">Confirm Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="register-confirmPassword"
+                        type={showRegisterPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        {...registerForm.register("confirmPassword")}
+                      />
+                    </div>
+                    {registerForm.formState.errors.confirmPassword && (
+                      <p className="text-sm text-destructive">{registerForm.formState.errors.confirmPassword.message}</p>
+                    )}
                   </div>
                   <Button 
                     type="submit" 

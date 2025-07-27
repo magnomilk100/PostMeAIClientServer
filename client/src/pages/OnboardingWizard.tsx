@@ -43,7 +43,7 @@ export default function OnboardingWizard() {
     interestedPlatforms: [],
     primaryGoals: [],
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    language: 'en'
+    language: navigator.language.split('-')[0] || 'en'
   });
 
   const { data: user } = useQuery({
@@ -112,7 +112,7 @@ export default function OnboardingWizard() {
         industry: user.industry || '',
         teamSize: user.teamSize || '',
         timezone: user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-        language: user.language || 'en',
+        language: user.language || navigator.language.split('-')[0] || 'en',
         profileType: user.profileType || 'individual',
         primaryGoals: user.primaryGoals || [],
         interestedPlatforms: user.interestedPlatforms || []
@@ -204,7 +204,7 @@ export default function OnboardingWizard() {
       case 6:
         return <OnboardingStep6 data={onboardingData} updateData={updateOnboardingData} />;
       case 7:
-        return <OnboardingStep7 data={onboardingData} updateData={updateOnboardingData} />;
+        return <OnboardingStep7 data={onboardingData} updateData={updateOnboardingData} setCurrentStep={setCurrentStep} />;
       default:
         return null;
     }

@@ -73,6 +73,9 @@ export const users = pgTable("users", {
   twoFactorAuth: boolean("two_factor_auth").default(false),
   // Email verification fields
   emailVerified: boolean("email_verified").default(false),
+  // Password reset fields
+  passwordResetToken: text("password_reset_token"),
+  passwordResetTokenExpiresAt: timestamp("password_reset_token_expires_at"),
   verificationToken: varchar("verification_token"),
   verificationTokenExpiry: timestamp("verification_token_expiry"),
   // Onboarding fields

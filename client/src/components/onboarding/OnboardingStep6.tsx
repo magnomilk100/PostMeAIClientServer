@@ -62,6 +62,8 @@ export default function OnboardingStep6({ data, updateData }: OnboardingStep6Pro
     });
   };
 
+
+
   const formatTimezone = (timezone: string) => {
     const parts = timezone.split('/');
     if (parts.length === 2) {

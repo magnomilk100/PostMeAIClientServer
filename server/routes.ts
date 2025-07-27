@@ -7,7 +7,9 @@ import { z } from "zod";
 import { setupAuth, requireAuth, optionalAuth } from "./auth";
 import passport from "passport";
 import multer from "multer";
-import { generateVerificationToken, sendVerificationEmail, sendWelcomeEmail } from "./email";
+import { generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, generatePasswordResetToken, sendPasswordResetEmail } from "./email";
+
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -269,6 +271,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (req.user) {
       res.json(req.user);
     } else {
+      // Check if there's a session but no user (user was deleted)
+      if (req.session && req.session.passport && req.session.passport.user) {
+        // Session exists but user doesn't - destroy the session
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('Error destroying invalid session:', err);
+          }
+        });
+      }
       res.status(401).json({ message: "Not authenticated" });
     }
   });
@@ -382,6 +393,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Resend verification error:', error);
       res.status(500).json({ message: "Failed to resend verification email" });
+    }
+  });
+  // Password reset routes
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      console.log('🔐 Password reset request received for:', email);
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      const user = await storage.getUserByEmail(email);
+      console.log('👤 User lookup result:', user ? 'User found' : 'User not found');
+      
+      if (!user) {
+        console.log('❌ User not found, returning security message');
+        // For security, don't reveal if email exists
+        return res.json({ message: "If an account with that email exists, you'll receive password reset instructions." });
+      }
+      
+      // Generate password reset token
+      const resetToken = generatePasswordResetToken();
+      console.log('🔑 Generated reset token:', resetToken);
+      
+      const tokenSet = await storage.setPasswordResetToken(email, resetToken);
+      console.log('💾 Token set in storage:', tokenSet);
+      
+      if (!tokenSet) {
+        console.log('❌ Failed to set token in storage');
+        return res.status(500).json({ message: "Failed to generate reset token" });
+      }
+      
+      console.log('📧 Attempting to send password reset email...');
+      const emailSent = await sendPasswordResetEmail(email, resetToken);
+      console.log('📧 Email sent result:', emailSent);
+      
+      if (!emailSent) {
+        console.log('❌ Failed to send reset email');
+        return res.status(500).json({ message: "Failed to send reset email" });
+      }
+      
+      console.log('✅ Password reset process completed successfully');
+      res.json({ message: "If an account with that email exists, you'll receive password reset instructions." });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ message: "Failed to process password reset request" });
+    }
+  });
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and password are required" });
+      }
+      
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters long" });
+      }
+      
+      const resetSuccess = await storage.resetPassword(token, password);
+      
+      if (!resetSuccess) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+      
+      res.json({ message: "Password reset successful" });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
   // OAuth routes

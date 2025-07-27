@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Search, Bell, Rocket, Home, Edit, Layers, Image, Share2, Settings, Book, LogOut, Loader2, CreditCard, Crown, Video, Clock, X, Users, MessageSquare, AlertTriangle, CheckCircle, Globe, Menu, Calendar, Star, Shield } from "lucide-react";
+import { Search, Bell, Rocket, Home, Edit, Layers, Image, Share2, Settings, Book, LogOut, Loader2, CreditCard, Crown, Video, Clock, X, Users, MessageSquare, AlertTriangle, CheckCircle, Globe, Menu, Calendar, Star, Shield, UserPlus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,13 @@ import { useToast } from "@/hooks/use-toast";
 import { PageLoading, ComponentLoading } from "@/components/ui/loading";
 import { useNavigationLoading } from "@/hooks/useNavigationLoading";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import OnboardingWizard from "@/pages/OnboardingWizard";
@@ -34,6 +35,7 @@ const billingAdminNavigation = [
   { name: "Billing", href: "/billing", icon: CreditCard, requiresAuth: true },
   { name: "Subscription Plan", href: "/subscription-plan", icon: Crown, requiresAuth: true },
   { name: "Settings", href: "/settings", icon: Settings, requiresAuth: true },
+  { name: "Admin Invitations", href: "/admin/invitations", icon: UserPlus, requiresAuth: true, adminOnly: true },
 ];
 
 // Learning and help navigation (separated section)
@@ -60,6 +62,12 @@ export default function Layout({ children }: LayoutProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [onboardingVisible, setOnboardingVisible] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(256); // Default width in pixels
+  const [isResizing, setIsResizing] = useState(false);
+  const [billingAccordionOpen, setBillingAccordionOpen] = useState(false);
+  const [learningAccordionOpen, setLearningAccordionOpen] = useState(false);
+  const [shouldFlashChangePhoto, setShouldFlashChangePhoto] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
   const logoutMutation = useLogout();
   const { toast } = useToast();
   const isNavigationLoading = useNavigationLoading();
@@ -88,6 +96,47 @@ export default function Layout({ children }: LayoutProps) {
   // Notifications state
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // Resize functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+    const newWidth = e.clientX;
+    if (newWidth >= 200 && newWidth <= 400) {
+      setSidebarWidth(newWidth);
+    }
+  };
+  const handleMouseUp = () => {
+    setIsResizing(false);
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+  // Cleanup resize listeners on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+  // Photo click handler
+  const handlePhotoClick = () => {
+    setShouldFlashChangePhoto(true);
+    setLocation('/settings?tab=profile&flash=changePhoto');
+  };
+  // Header dropdown handlers
+  const handleHeaderSettings = () => {
+    setLocation('/settings');
+  };
+  const handleHeaderSubscription = () => {
+    setLocation('/subscription-plan');
+  };
+  const handleHeaderBilling = () => {
+    setLocation('/billing');
+  };
   // Search queries with database integration
   const { data: searchResults = [], isLoading: isSearching } = useQuery({
     queryKey: ["/api/search", { q: searchQuery }],
@@ -186,9 +235,15 @@ export default function Layout({ children }: LayoutProps) {
 
   const getVisibleBillingAdminNavigation = () => {
     if (isAuthenticated) {
-      return billingAdminNavigation;
+      return billingAdminNavigation.filter(item => {
+        // Filter out admin-only items if user is not an admin
+        if (item.adminOnly && user?.role !== 'admin') {
+          return false;
+        }
+        return true;
+      });
     }
-    return billingAdminNavigation.filter(item => !item.requiresAuth);
+    return [];
   };
 
   const getVisibleLearningHelpNavigation = () => {
@@ -445,17 +500,48 @@ export default function Layout({ children }: LayoutProps) {
                   </PopoverContent>
                 </Popover>
                 <div className="flex items-center space-x-2">
-                  <Avatar className="w-8 h-8">
+                  <Avatar 
+                    className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all duration-200"
+                    onClick={handlePhotoClick}
+                  >
                     {user?.profileImageUrl ? (
                       <AvatarImage src={user.profileImageUrl} />
                     ) : null}
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {user?.firstName && user?.lastName 
-                      ? `${user.firstName} ${user.lastName}`
-                      : user?.email || "User"}
-                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer">
+                          {user?.firstName && user?.lastName 
+                            ? `${user.firstName} ${user.lastName}`
+                            : user?.email || "User"}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handleHeaderSettings}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleHeaderSubscription}>
+                        <Crown className="w-4 h-4 mr-2" />
+                        Subscription
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleHeaderBilling}>
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Billing
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={handleLogout}
+                        className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logout
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </>
             ) : (
@@ -511,109 +597,139 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       )}
 
-      {/* Sidebar - Only show when authenticated */}
+      {/* Sidebar - Only show for authenticated users */}
       {isAuthenticated && (
-        <aside className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 transform transition-transform duration-300 ease-in-out ${
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0`}>
-        <nav className="p-4 space-y-6">
-          {/* Business Navigation Section */}
-          <div className="space-y-1">
-            {getVisibleBusinessNavigation().map((item) => {
-              const isActive = location === item.href || 
-                (item.href === '/post' && (location === '/post-schedule-wizard' || location === '/manual-post-wizard'));
-              const IconComponent = item.icon;
-              return (
-                <Link key={item.name} href={item.href}>
-                  <div 
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 group interactive-hover ${
-                      isActive
-                        ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                        : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:text-white dark:hover:from-gray-700 dark:hover:to-blue-900/20"
-                    }`}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <IconComponent className={`w-5 h-5 transition-all duration-300 ${
-                      isActive 
-                        ? "text-white" 
-                        : "text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
-                    }`} />
-                    <span>{item.name}</span>
+        <aside 
+          ref={sidebarRef}
+          className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 transform transition-transform duration-300 ease-in-out ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          } md:translate-x-0 flex`}
+          style={{ width: `${sidebarWidth}px` }}
+        >
+        <div className="flex-1 flex flex-col">
+          <ScrollArea className="flex-1 p-4">
+            <nav className="space-y-6">
+              {/* Business Navigation Section */}
+              <div className="space-y-1">
+                {getVisibleBusinessNavigation().map((item) => {
+                  const isActive = location === item.href || 
+                    (item.href === '/post' && (location === '/post-schedule-wizard' || location === '/manual-post-wizard'));
+                  const IconComponent = item.icon;
+                  return (
+                    <Link key={item.name} href={item.href}>
+                      <div 
+                        className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 group interactive-hover ${
+                          isActive
+                            ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                            : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:text-white dark:hover:from-gray-700 dark:hover:to-blue-900/20"
+                        }`}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <IconComponent className={`w-5 h-5 transition-all duration-300 ${
+                          isActive 
+                            ? "text-white" 
+                            : "text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                        }`} />
+                        <span>{item.name}</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+              
+              {/* Account & Billing Accordion Section - Only for authenticated users */}
+              {isAuthenticated && getVisibleBillingAdminNavigation().length > 0 && (
+                <>
+                  <div className="border-t border-gray-200 dark:border-gray-700"></div>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setBillingAccordionOpen(!billingAccordionOpen)}
+                      className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    >
+                      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Account & Billing
+                      </h3>
+                      {billingAccordionOpen ? (
+                        <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </button>
+                    {billingAccordionOpen && (
+                      <div className="space-y-1">
+                        {getVisibleBillingAdminNavigation().map((item) => {
+                          const isActive = location === item.href;
+                          const IconComponent = item.icon;
+                          return (
+                            <Link key={item.name} href={item.href}>
+                              <div 
+                                className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 group interactive-hover ${
+                                  isActive
+                                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:text-white dark:hover:from-gray-700 dark:hover:to-blue-900/20"
+                                }`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                              >
+                                <IconComponent className={`w-5 h-5 transition-all duration-300 ${
+                                  isActive 
+                                    ? "text-white" 
+                                    : "text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                                }`} />
+                                <span>{item.name}</span>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-          
-          {/* Separator */}
-          <div className="border-t border-gray-200 dark:border-gray-700"></div>
-          
-          {/* Billing & Admin Navigation Section */}
-          <div className="space-y-1">
-            <div className="px-4 py-2">
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Account & Billing
-              </h3>
-            </div>
-            {getVisibleBillingAdminNavigation().map((item) => {
-              const isActive = location === item.href;
-              const IconComponent = item.icon;
-              return (
-                <Link key={item.name} href={item.href}>
-                  <div 
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 group interactive-hover ${
-                      isActive
-                        ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                        : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:text-white dark:hover:from-gray-700 dark:hover:to-blue-900/20"
-                    }`}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <IconComponent className={`w-5 h-5 transition-all duration-300 ${
-                      isActive 
-                        ? "text-white" 
-                        : "text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
-                    }`} />
-                    <span>{item.name}</span>
+                </>
+              )}
+              
+              {/* Learning & Help Accordion Section - Always visible */}
+              <div className="border-t border-gray-200 dark:border-gray-700"></div>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setLearningAccordionOpen(!learningAccordionOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                >
+                  <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Learning & Help
+                  </h3>
+                  {learningAccordionOpen ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  )}
+                </button>
+                {learningAccordionOpen && (
+                  <div className="space-y-1">
+                    {getVisibleLearningHelpNavigation().map((item) => {
+                      const isActive = location === item.href;
+                      const IconComponent = item.icon;
+                      return (
+                        <Link key={item.name} href={item.href}>
+                          <div 
+                            className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 group interactive-hover ${
+                              isActive
+                                ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:text-white dark:hover:from-gray-700 dark:hover:to-blue-900/20"
+                            }`}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                          >
+                            <IconComponent className={`w-5 h-5 transition-all duration-300 ${
+                              isActive 
+                                ? "text-white" 
+                                : "text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                            }`} />
+                            <span>{item.name}</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-          
-          {/* Separator */}
-          <div className="border-t border-gray-200 dark:border-gray-700"></div>
-          
-          {/* Learning & Help Navigation Section */}
-          <div className="space-y-1">
-            <div className="px-4 py-2">
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Learning & Help
-              </h3>
-            </div>
-            {getVisibleLearningHelpNavigation().map((item) => {
-              const isActive = location === item.href;
-              const IconComponent = item.icon;
-              return (
-                <Link key={item.name} href={item.href}>
-                  <div 
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 group interactive-hover ${
-                      isActive
-                        ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
-                        : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:text-white dark:hover:from-gray-700 dark:hover:to-blue-900/20"
-                    }`}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <IconComponent className={`w-5 h-5 transition-all duration-300 ${
-                      isActive 
-                        ? "text-white" 
-                        : "text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
-                    }`} />
-                    <span>{item.name}</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                )}
+              </div>
           
           {/* Separator */}
           <div className="border-t border-gray-200 dark:border-gray-700"></div>
@@ -634,12 +750,25 @@ export default function Layout({ children }: LayoutProps) {
               {logoutMutation.isPending ? "Logging out..." : "Logout"}
             </Button>
           )}
-        </nav>
-        </aside>
+            </nav>
+          </ScrollArea>
+        </div>
+        
+        {/* Resize Handle */}
+        <div 
+          className="w-1 hover:w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 dark:hover:bg-blue-500 cursor-col-resize transition-all duration-200 flex items-center justify-center group"
+          onMouseDown={handleMouseDown}
+        >
+          <GripVertical className="w-3 h-3 text-gray-400 group-hover:text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </aside>
       )}
 
       {/* Main Content */}
-      <main className={`pt-16 min-h-screen relative px-4 md:px-6 lg:px-8 ${isAuthenticated ? 'md:ml-64' : ''}`}>
+      <main 
+        className={`pt-16 min-h-screen relative px-4 md:px-6 lg:px-8 transition-all duration-300 ${isAuthenticated ? 'md:ml-0' : ''}`}
+        style={{ marginLeft: isAuthenticated ? `${sidebarWidth}px` : '0' }}
+      >
         {/* Navigation Loading Overlay */}
         {isNavigationLoading && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">

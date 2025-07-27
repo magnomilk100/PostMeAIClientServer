@@ -35,7 +35,7 @@ import {
   type InsertScheduleExecution,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 
@@ -126,6 +126,11 @@ export interface IStorage {
   setVerificationToken(userId: string, token: string): Promise<void>;
   verifyEmail(token: string): Promise<User | null>;
   getUserByVerificationToken(token: string): Promise<User | null>;
+
+  // Password reset operations
+  setPasswordResetToken(email: string, token: string): Promise<boolean>;
+  verifyPasswordResetToken(token: string): Promise<User | null>;
+  resetPassword(token: string, newPassword: string): Promise<boolean>;
 
   // Onboarding operations
   saveOnboardingData(userId: string, data: any): Promise<User>;
@@ -849,6 +854,65 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updatedUser;
+  }
+  async setPasswordResetToken(email: string, token: string): Promise<boolean> {
+    try {
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+      
+      const result = await db
+        .update(users)
+        .set({
+          passwordResetToken: token,
+          passwordResetTokenExpiresAt: expiresAt
+        })
+        .where(eq(users.email, email))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error setting password reset token:', error);
+      return false;
+    }
+  }
+  async verifyPasswordResetToken(token: string): Promise<User | null> {
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(and(
+          eq(users.passwordResetToken, token),
+          gt(users.passwordResetTokenExpiresAt, new Date())
+        ));
+      
+      return user || null;
+    } catch (error) {
+      console.error('Error verifying password reset token:', error);
+      return null;
+    }
+  }
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    try {
+      const user = await this.verifyPasswordResetToken(token);
+      if (!user) {
+        return false;
+      }
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      const result = await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetTokenExpiresAt: null
+        })
+        .where(eq(users.id, user.id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      return false;
+    }
   }
 }
 

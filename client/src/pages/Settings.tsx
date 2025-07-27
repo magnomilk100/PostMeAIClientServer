@@ -38,6 +38,24 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [, navigate] = useLocation();
   
+  // Parse URL parameters for tab and flash functionality
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get('tab') || 'profile';
+  const flashParam = urlParams.get('flash');
+  
+  const [activeTab, setActiveTab] = useState(tabParam);
+  const [shouldFlashChangePhoto, setShouldFlashChangePhoto] = useState(flashParam === 'changePhoto');
+  
+  // Remove flash effect after 3 seconds
+  useEffect(() => {
+    if (shouldFlashChangePhoto) {
+      const timer = setTimeout(() => {
+        setShouldFlashChangePhoto(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldFlashChangePhoto]);
+  
   // Profile settings state
   const [profileData, setProfileData] = useState({
     firstName: user?.firstName || "",
@@ -322,7 +340,7 @@ export default function Settings() {
         <h1 className="text-3xl font-bold text-gray-900">{t('settings.title')}</h1>
       </div>
       
-      <Tabs defaultValue="profile" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="profile">{t('settings.tabs.profile')}</TabsTrigger>
           <TabsTrigger value="notifications">{t('settings.tabs.notifications')}</TabsTrigger>
@@ -367,6 +385,7 @@ export default function Settings() {
                       variant="outline" 
                       size="sm"
                       onClick={() => document.getElementById('profile-image-upload')?.click()}
+                      className={shouldFlashChangePhoto ? 'animate-pulse bg-purple-100 border-purple-300' : ''}
                     >
                       <Camera className="w-4 h-4 mr-2" />
                       {t('settings.profile.changePhoto')}

@@ -16,6 +16,7 @@ import { SiFacebook, SiInstagram, SiLinkedin, SiX, SiTiktok, SiYoutube } from 'r
 interface OnboardingStep7Props {
   data: any;
   updateData: (data: any) => void;
+  setCurrentStep: (step: number) => void;
 }
 
 const platformIcons = {
@@ -60,7 +61,7 @@ const languageNames = {
   zh: '中文'
 };
 
-export default function OnboardingStep7({ data }: OnboardingStep7Props) {
+export default function OnboardingStep7({ data, setCurrentStep }: OnboardingStep7Props) {
   const isIndividual = data.profileType === 'individual';
   
   const formatTimezone = (timezone: string) => {
@@ -119,7 +120,7 @@ export default function OnboardingStep7({ data }: OnboardingStep7Props) {
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setCurrentStep(data.profileType === 'individual' ? 3 : 3)}>
               <Edit className="w-4 h-4 mr-2" />
               Edit
             </Button>
@@ -130,7 +131,7 @@ export default function OnboardingStep7({ data }: OnboardingStep7Props) {
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-lg">Interested Platforms</h3>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setCurrentStep(4)}>
               <Edit className="w-4 h-4 mr-2" />
               Edit
             </Button>
@@ -154,7 +155,7 @@ export default function OnboardingStep7({ data }: OnboardingStep7Props) {
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-lg">Primary Goals</h3>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setCurrentStep(5)}>
               <Edit className="w-4 h-4 mr-2" />
               Edit
             </Button>
@@ -177,7 +178,7 @@ export default function OnboardingStep7({ data }: OnboardingStep7Props) {
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-lg">Preferences</h3>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setCurrentStep(6)}>
               <Edit className="w-4 h-4 mr-2" />
               Edit
             </Button>

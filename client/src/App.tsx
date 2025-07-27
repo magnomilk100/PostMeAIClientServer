@@ -25,6 +25,8 @@ import PostSchedule from "@/pages/PostSchedule";
 import PostScheduleWizard from "@/pages/PostScheduleWizard";
 import UserDataDeletion from "@/pages/UserDataDeletion";
 import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 
 import I18nDemo from "@/pages/I18nDemo";
 import Features from "@/pages/Features";
@@ -55,7 +57,16 @@ function Router() {
         <Route path="/post-schedule" component={PostSchedule} />
         <Route path="/post-schedule-wizard" component={PostScheduleWizard} />
         <Route path="/user-data-deletion" component={UserDataDeletion} />
-        <Route path="/login" component={Login} />
+        <Route path="/login">
+          {(params) => {
+            const searchParams = new URLSearchParams(window.location.search);
+            const initialTab = searchParams.get('tab') as 'login' | 'register' || 'login';
+            const focusField = searchParams.get('focus') as 'email' | 'firstName' || 'email';
+            return <Login initialTab={initialTab} focusField={focusField} />;
+          }}
+        </Route>
+        <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
 
         <Route path="/i18n-demo" component={I18nDemo} />
         <Route path="/features" component={Features} />

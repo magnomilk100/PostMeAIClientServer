@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Consent Modal Test</title>
+    <script>
+        // Test function to clear consent and verify modal behavior
+        function testConsentModal() {
+            console.log("=== CONSENT MODAL TEST RESULTS ===");
+            
+            // Clear any existing consent to start fresh
+            localStorage.removeItem('postmeai-consent');
+            console.log("✓ Cleared existing consent");
+            
+            // Test 1: Check initial state
+            const hasConsent = localStorage.getItem('postmeai-consent');
+            console.log("Initial consent state:", hasConsent ? "EXISTS" : "NOT EXISTS");
+            
+            // Test Accept All functionality
+            const acceptAllConsent = {
+                mandatoryCookies: true,
+                analyticsCookies: true,
+                personalizationCookies: true,
+                marketingCookies: true,
+                privacyPolicy: true,
+                termsOfUse: true,
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem('postmeai-consent', JSON.stringify(acceptAllConsent));
+            console.log("✓ ACCEPT ALL test: Stored full consent");
+            
+            // Verify storage
+            const stored = JSON.parse(localStorage.getItem('postmeai-consent'));
+            console.log("Accept All verification:", {
+                mandatory: stored.mandatoryCookies,
+                analytics: stored.analyticsCookies,
+                personalization: stored.personalizationCookies,
+                marketing: stored.marketingCookies,
+                privacy: stored.privacyPolicy,
+                terms: stored.termsOfUse
+            });
+            
+            // Clear for next test
+            localStorage.removeItem('postmeai-consent');
+            
+            // Test Reject Optional functionality
+            const rejectOptionalConsent = {
+                mandatoryCookies: true,
+                analyticsCookies: false,
+                personalizationCookies: false,
+                marketingCookies: false,
+                privacyPolicy: true,
+                termsOfUse: true,
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem('postmeai-consent', JSON.stringify(rejectOptionalConsent));
+            console.log("✓ REJECT OPTIONAL test: Stored minimal consent");
+            
+            // Verify storage
+            const storedReject = JSON.parse(localStorage.getItem('postmeai-consent'));
+            console.log("Reject Optional verification:", {
+                mandatory: storedReject.mandatoryCookies,
+                analytics: storedReject.analyticsCookies,
+                personalization: storedReject.personalizationCookies,
+                marketing: storedReject.marketingCookies,
+                privacy: storedReject.privacyPolicy,
+                terms: storedReject.termsOfUse
+            });
+            
+            // Clear for next test
+            localStorage.removeItem('postmeai-consent');
+            
+            // Test Customize Preferences functionality
+            const customConsent = {
+                mandatoryCookies: true,
+                analyticsCookies: true,  // User selected analytics
+                personalizationCookies: false,
+                marketingCookies: false,
+                privacyPolicy: true,
+                termsOfUse: true,
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem('postmeai-consent', JSON.stringify(customConsent));
+            console.log("✓ CUSTOMIZE PREFERENCES test: Stored custom consent");
+            
+            // Verify storage
+            const storedCustom = JSON.parse(localStorage.getItem('postmeai-consent'));
+            console.log("Custom Preferences verification:", {
+                mandatory: storedCustom.mandatoryCookies,
+                analytics: storedCustom.analyticsCookies,
+                personalization: storedCustom.personalizationCookies,
+                marketing: storedCustom.marketingCookies,
+                privacy: storedCustom.privacyPolicy,
+                terms: storedCustom.termsOfUse
+            });
+            
+            console.log("=== TEST COMPLETE ===");
+            console.log("Expected behavior:");
+            console.log("1. Accept All: All cookies true, privacy/terms true");
+            console.log("2. Reject Optional: Only mandatory/privacy/terms true");
+            console.log("3. Customize: User-selected preferences with privacy/terms true");
+            
+            // Clear for final state
+            localStorage.removeItem('postmeai-consent');
+            console.log("✓ Cleared consent for fresh testing");
+        }
+        
+        // Run test on page load
+        window.onload = testConsentModal;
+    </script>
+</head>
+<body>
+    <h1>Consent Modal Test</h1>
+    <p>Check the browser console for test results.</p>
+    <button onclick="testConsentModal()">Run Test Again</button>
+    <button onclick="localStorage.removeItem('postmeai-consent'); console.log('Consent cleared')">Clear Consent</button>
+    <button onclick="console.log('Current consent:', localStorage.getItem('postmeai-consent'))">Check Current Consent</button>
+</body>
+</html>

@@ -37,10 +37,10 @@ Google Cloud Console OAuth 2.0 configuration is incomplete or incorrect.
 4. Under "Application type", ensure it's set to "Web application"
 5. In "Authorized JavaScript origins", add:
    - `http://localhost:5000`
-   - `https://www.postmeai.com`
+   - `https://postmeai.com`
 6. In "Authorized redirect URIs", add these EXACT URLs:
    - `http://localhost:5000/auth/google/callback`
-   - `https://www.postmeai.com/auth/google/callback`
+   - `https://postmeai.com/auth/google/callback`
 7. Save changes
 
 ### 5. Important Notes

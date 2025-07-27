@@ -2,22 +2,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useLocation } from "wouter";
+import { AuthGuard } from "@/components/AuthGuard";
 import { Sparkles, Edit3, Target, Clock, TrendingUp, HelpCircle, Bot, Calendar, PenTool, Palette, Link, Eye, Hash, Image, Users, Settings, MessageSquare, Zap, Globe, CheckCircle, Lightbulb, FileText, MousePointer, Monitor, Share2, PlayCircle, CheckSquare, Upload, History, Filter, Plus, Play } from "lucide-react";
 
 export default function Post() {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="page-content-full">
-      <div  className="mb-8 mt-4">
-        {/* <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent"> */}
-        <h1 className="text-4xl font-bold text-standar">
-        Create New Post
-        </h1>
-        <p className="text-enhanced mt-1 text-muted">
-          Manage and monitor your automated posting schedules
-        </p>
-      </div>
+    <AuthGuard>
+      <div className="page-content">
+      <h1 className="text-3xl font-bold text-standard mb-8">Create New Post</h1>
+      
+
+
       {/* Action Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {/* AI Post Wizard */}
@@ -799,5 +796,6 @@ export default function Post() {
         </Accordion>
       </div>
     </div>
+    </AuthGuard>
   );
 }
