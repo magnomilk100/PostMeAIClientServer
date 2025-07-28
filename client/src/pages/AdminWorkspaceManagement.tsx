@@ -70,7 +70,10 @@ export default function AdminWorkspaceManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspaces'] });
-      toast.success('Workspace created successfully');
+      toast({
+        title: "Success",
+        description: "Workspace created successfully",
+      });
       // Reset form first
       const form = document.getElementById('createWorkspaceForm') as HTMLFormElement;
       if (form) {
@@ -96,7 +99,11 @@ export default function AdminWorkspaceManagement() {
       } catch (e) {
         errorMessage = error.message || 'Failed to create workspace';
       }
-      toast.error(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 
@@ -110,7 +117,10 @@ export default function AdminWorkspaceManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspaces'] });
-      toast.success('Workspace updated successfully');
+      toast({
+        title: "Success",
+        description: "Workspace updated successfully",
+      });
       setShowEditDialog(false);
       setEditingWorkspace(null);
     },
@@ -129,7 +139,11 @@ export default function AdminWorkspaceManagement() {
       } catch (e) {
         errorMessage = error.message || 'Failed to update workspace';
       }
-      toast.error(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 
@@ -140,7 +154,10 @@ export default function AdminWorkspaceManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspaces'] });
-      toast.success('Workspace deleted successfully');
+      toast({
+        title: "Success",
+        description: "Workspace deleted successfully",
+      });
       setDeletingWorkspace(null);
       setDeleteConfirmationText('');
     },
@@ -159,7 +176,11 @@ export default function AdminWorkspaceManagement() {
       } catch (e) {
         errorMessage = error.message || 'Failed to delete workspace';
       }
-      toast.error(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 
@@ -190,7 +211,10 @@ export default function AdminWorkspaceManagement() {
       queryClient.refetchQueries({ queryKey: ['/api/workspace/current'] });
       queryClient.refetchQueries({ queryKey: ['/api/auth/user'] });
       
-      toast.success('Workspace switched successfully');
+      toast({
+        title: "Success",
+        description: "Workspace switched successfully",
+      });
     },
     onError: (error: any) => {
       let errorMessage = 'Failed to switch workspace';
@@ -207,7 +231,11 @@ export default function AdminWorkspaceManagement() {
       } catch (e) {
         errorMessage = error.message || 'Failed to switch workspace';
       }
-      toast.error(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 
@@ -308,18 +336,21 @@ export default function AdminWorkspaceManagement() {
               Create, manage, and monitor all workspaces in your organization
             </p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button 
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Create Workspace
           </Button>
         </div>
 
         {/* Current Workspace Context */}
-        {userWorkspaces && userWorkspaces.length > 0 && (
+        {userWorkspaces && Array.isArray(userWorkspaces) && userWorkspaces.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-500" />
+                <Shield className="h-5 w-5 text-purple-500" />
                 Your Current Workspaces
               </CardTitle>
               <CardDescription>
@@ -328,19 +359,32 @@ export default function AdminWorkspaceManagement() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userWorkspaces.map((workspace: any) => (
-                  <div key={workspace.id} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium">{workspace.name}</div>
-                      {user?.currentWorkspaceId === workspace.id && (
-                        <Badge className="bg-green-500 text-white">Current</Badge>
-                      )}
+                {userWorkspaces.map((workspace: any) => {
+                  const isCurrentWorkspace = (user as any)?.currentWorkspaceId === workspace.id;
+                  return (
+                    <div 
+                      key={workspace.id} 
+                      onClick={() => !isCurrentWorkspace && handleSwitchWorkspace(workspace.id)}
+                      className={`
+                        border rounded-lg p-4 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-pointer
+                        ${isCurrentWorkspace ? 'border-purple-300 bg-purple-50 dark:bg-purple-900/20' : 'hover:border-purple-200'}
+                        ${!isCurrentWorkspace ? 'hover:cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}
+                      `}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`font-medium ${isCurrentWorkspace ? 'text-purple-700 dark:text-purple-300' : ''}`}>
+                          {workspace.name}
+                        </div>
+                        {isCurrentWorkspace && (
+                          <Badge className="bg-purple-500 text-white">Current</Badge>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        ID: {workspace.uniqueId}
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      ID: {workspace.uniqueId}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -375,21 +419,36 @@ export default function AdminWorkspaceManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {workspaces?.map((workspace: Workspace) => (
-                    <TableRow key={workspace.id}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <div className="font-medium">{workspace.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            ID: {workspace.uniqueId}
-                          </div>
-                          {workspace.description && (
-                            <div className="text-sm text-muted-foreground mt-1">
-                              {workspace.description}
+                  {workspaces?.map((workspace: Workspace) => {
+                    const isCurrentWorkspace = (user as any)?.currentWorkspaceId === workspace.id;
+                    return (
+                      <TableRow 
+                        key={workspace.id}
+                        onClick={() => !isCurrentWorkspace && handleSwitchWorkspace(workspace.id)}
+                        className={`
+                          transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:shadow-md cursor-pointer
+                          ${isCurrentWorkspace ? 'bg-purple-50 dark:bg-purple-900/20 border-l-4 border-l-purple-500' : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'}
+                          ${!isCurrentWorkspace ? 'hover:cursor-pointer' : ''}
+                        `}
+                      >
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <div className={`font-medium flex items-center gap-2 ${isCurrentWorkspace ? 'text-purple-700 dark:text-purple-300' : ''}`}>
+                              {workspace.name}
+                              {isCurrentWorkspace && (
+                                <Badge className="bg-purple-500 text-white text-xs">Active</Badge>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </TableCell>
+                            <div className="text-sm text-muted-foreground">
+                              ID: {workspace.uniqueId}
+                            </div>
+                            {workspace.description && (
+                              <div className="text-sm text-muted-foreground mt-1">
+                                {workspace.description}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4" />
@@ -409,21 +468,26 @@ export default function AdminWorkspaceManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           <Button
-                            variant="outline"
                             size="sm"
                             onClick={() => handleSwitchWorkspace(workspace.id)}
-                            disabled={switchWorkspaceMutation.isPending}
+                            disabled={switchWorkspaceMutation.isPending || isCurrentWorkspace}
+                            className={`
+                              ${isCurrentWorkspace 
+                                ? 'bg-purple-100 text-purple-700 cursor-not-allowed' 
+                                : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105'
+                              }
+                            `}
                           >
                             <ArrowRightLeft className="h-3 w-3 mr-1" />
-                            Switch
+                            {isCurrentWorkspace ? 'Active' : 'Switch'}
                           </Button>
                           {canManageWorkspace(workspace) && (
                             <Button
-                              variant="outline"
                               size="sm"
                               onClick={() => handleEditWorkspace(workspace)}
+                              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
                             >
                               <Edit className="h-3 w-3 mr-1" />
                               Edit
@@ -433,9 +497,9 @@ export default function AdminWorkspaceManagement() {
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
-                                  variant="outline"
                                   size="sm"
                                   onClick={() => handleDeleteWorkspace(workspace)}
+                                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
                                 >
                                   <Trash2 className="h-3 w-3 mr-1" />
                                   Delete
@@ -479,7 +543,8 @@ export default function AdminWorkspaceManagement() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -518,10 +583,19 @@ export default function AdminWorkspaceManagement() {
             </div>
             
             <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowCreateDialog(false)}
+                className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createWorkspaceMutation.isPending}>
+              <Button 
+                type="submit" 
+                disabled={createWorkspaceMutation.isPending}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
                 {createWorkspaceMutation.isPending ? 'Creating...' : 'Create Workspace'}
               </Button>
             </div>
@@ -571,10 +645,19 @@ export default function AdminWorkspaceManagement() {
               </div>
               
               <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowEditDialog(false)}
+                  className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateWorkspaceMutation.isPending}>
+                <Button 
+                  type="submit" 
+                  disabled={updateWorkspaceMutation.isPending}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
                   {updateWorkspaceMutation.isPending ? 'Updating...' : 'Update Workspace'}
                 </Button>
               </div>

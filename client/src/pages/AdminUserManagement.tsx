@@ -72,7 +72,6 @@ export default function AdminUserManagement() {
   const [removingUser, setRemovingUser] = useState<User | null>(null);
   const [showWorkspaceRoleDialog, setShowWorkspaceRoleDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<number | null>(null);
   
   // Delete user states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -201,6 +200,12 @@ export default function AdminUserManagement() {
     enabled: isCurrentUserOrgOwner && hasAdminAccess,
   });
 
+  // Fetch current workspace
+  const { data: currentWorkspace } = useQuery({
+    queryKey: ['/api/workspace/current'],
+    enabled: hasAdminAccess,
+  });
+
   // Type the workspace roles properly
   const typedWorkspaceRoles = workspaceRoles as WorkspaceRole[];
 
@@ -213,14 +218,7 @@ export default function AdminUserManagement() {
     enabled: !!(user as any)?.currentWorkspaceId && hasAdminAccess,
   });
 
-  // Fetch user workspace roles for selected workspace (when dialog is open)
-  const { data: selectedWorkspaceUserRoles } = useQuery({
-    queryKey: ['/api/user-workspace-roles', selectedWorkspaceId],
-    queryFn: () => fetch(`/api/user-workspace-roles/${selectedWorkspaceId}`, {
-      credentials: 'include'
-    }).then(res => res.json()),
-    enabled: !!selectedWorkspaceId && showWorkspaceRoleDialog && hasAdminAccess,
-  });
+
 
   // Helper function to check current user's organization role
   const getCurrentUserOrganizationRole = () => {
@@ -278,36 +276,9 @@ export default function AdminUserManagement() {
     });
   };
 
-  // Get user workspace roles for SELECTED workspace in dialog
-  const getUserWorkspaceRolesForSelectedWorkspace = (userId: string) => {
-    if (!selectedWorkspaceUserRoles || !selectedWorkspaceId || !workspaceRoles) return [];
-    
-    const userRoles = selectedWorkspaceUserRoles.filter((role: any) => 
-      role.userId === userId && role.workspaceId === selectedWorkspaceId
-    );
-    
-    return userRoles.map((role: any, index: number) => {
-      // Find the role name from workspaceRoles by matching roleId
-      const roleDetails = (workspaceRoles as any[]).find((wr: any) => wr.id === role.roleId);
-      const roleName = roleDetails?.name || 'Unknown';
-      
-      return {
-        id: `${userId}_${role.workspaceId}_${index}`,
-        userId: userId,
-        workspaceId: role.workspaceId,
-        roleId: role.roleId,
-        role: roleName,
-        workspaceName: (allWorkspaces as any)?.find?.((w: any) => w.id === selectedWorkspaceId)?.name || 'Selected Workspace'
-      };
-    });
-  };
 
-  // Effect to set default workspace when dialog opens
-  useEffect(() => {
-    if (showWorkspaceRoleDialog && user?.currentWorkspaceId && !selectedWorkspaceId) {
-      setSelectedWorkspaceId(user.currentWorkspaceId);
-    }
-  }, [showWorkspaceRoleDialog, user?.currentWorkspaceId, selectedWorkspaceId]);
+
+
 
   // Get workspace role color based on role name
   const getWorkspaceRoleColor = (roleName: string) => {
@@ -365,10 +336,6 @@ export default function AdminUserManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/user-workspace-roles', user?.currentWorkspaceId] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspace/members'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/organization/members'] });
-      // Invalidate user workspace roles for the selected workspace
-      if (selectedWorkspaceId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/user-workspace-roles', selectedWorkspaceId] });
-      }
       toast({
         title: "Success",
         description: "Workspace role assigned successfully",
@@ -387,17 +354,13 @@ export default function AdminUserManagement() {
   // Remove workspace role mutation
   const removeWorkspaceRoleMutation = useMutation({
     mutationFn: async ({ userId, roleId, workspaceId }: { userId: string; roleId: number; workspaceId?: number }) => {
-      const targetWorkspaceId = workspaceId || selectedWorkspaceId || user?.currentWorkspaceId;
+      const targetWorkspaceId = workspaceId || user?.currentWorkspaceId;
       return await apiRequest('DELETE', `/api/user-workspace-roles/${userId}/${targetWorkspaceId}/${roleId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-workspace-roles', user?.currentWorkspaceId] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspace/members'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/organization/members'] });
-      // Invalidate user workspace roles for the selected workspace
-      if (selectedWorkspaceId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/user-workspace-roles', selectedWorkspaceId] });
-      }
       toast({
         title: "Success",
         description: "Workspace role removed successfully",
@@ -470,10 +433,6 @@ export default function AdminUserManagement() {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    if (!role) {
-      console.log("🚨 DEBUG  Admin User Management - getRoleBadgeColor 1a - Role is undefined/null, returning default color");
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }     
     switch (role) {
       case 'administrator': return 'bg-red-500';
       case 'manager': return 'bg-blue-500';
@@ -711,10 +670,10 @@ export default function AdminUserManagement() {
                     {/* Filter Actions */}
                     <div className="flex items-center gap-2 pt-2 border-t">
                       <Button
-                        variant="outline"
                         size="sm"
                         onClick={resetFilters}
                         disabled={filterType === 'all' && selectedRoleIds.length === 0 && !activeSinceDate}
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                       >
                         <X className="h-3 w-3 mr-1" />
                         Reset Filters
@@ -760,7 +719,11 @@ export default function AdminUserManagement() {
                             }
                           </div>
                           {filterType !== 'all' && (
-                            <Button variant="outline" size="sm" onClick={resetFilters}>
+                            <Button 
+                              size="sm" 
+                              onClick={resetFilters}
+                              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                            >
                               Clear Filters
                             </Button>
                           )}
@@ -769,7 +732,7 @@ export default function AdminUserManagement() {
                     </TableRow>
                   ) : (
                     getFilteredUsers().map((member: User) => (
-                    <TableRow key={member.id}>
+                    <TableRow key={member.id} className="transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:shadow-md hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer">
                       <TableCell>
                         <div className="flex flex-col">
                           <div className="font-medium">{member.firstName} {member.lastName}</div>
@@ -822,21 +785,7 @@ export default function AdminUserManagement() {
                             )}
                           </div>
                           
-                          {/* Add Role Button - Only show if user can manage roles */}
-                          {canManageRoles() && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedUser(member);
-                                setShowWorkspaceRoleDialog(true);
-                              }}
-                              className="text-xs w-fit mt-1"
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Add Role
-                            </Button>
-                          )}
+
                         </div>
                       </TableCell>
                       <TableCell>
@@ -862,12 +811,26 @@ export default function AdminUserManagement() {
                       </TableCell>
                       {hasAnyActionsAvailable() && (
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            {/* Add Role Button - Only show if user can manage roles */}
+                            {canManageRoles() && (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUser(member);
+                                  setShowWorkspaceRoleDialog(true);
+                                }}
+                                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add Role
+                              </Button>
+                            )}
                             {member.id !== user?.id && getCurrentUserOrganizationRole() === 'owner' && !isOrganizationOwner(member.id) && (
                               <Button
-                                variant="outline"
                                 size="sm"
                                 onClick={() => handleDeleteUser(member)}
+                                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                               >
                                 <Trash2 className="h-3 w-3 mr-1" />
                                 Delete
@@ -984,19 +947,20 @@ export default function AdminUserManagement() {
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button
-              variant="outline"
               onClick={() => {
                 setShowDeleteDialog(false);
                 setDeleteConfirmationEmail("");
                 setUserToDelete(null);
               }}
+              variant="outline"
+              className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200"
             >
               Cancel
             </Button>
             <Button
-              variant="destructive"
               onClick={confirmDeleteUser}
               disabled={deleteUserMutation.isPending || deleteConfirmationEmail !== userToDelete?.email}
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:from-red-600 disabled:hover:to-red-700"
             >
               {deleteUserMutation.isPending ? "Deleting..." : "Delete User Permanently"}
             </Button>
@@ -1011,37 +975,32 @@ export default function AdminUserManagement() {
             <DialogHeader>
               <DialogTitle>Assign Workspace Role</DialogTitle>
               <DialogDescription>
-                Select a workspace role to assign to {selectedUser?.firstName} {selectedUser?.lastName}
-                {isCurrentUserOrgOwner && " across any workspace in your organization"}
+                Select a workspace role to assign to {selectedUser?.firstName} {selectedUser?.lastName} in the current workspace
               </DialogDescription>
             </DialogHeader>
           <div className="space-y-4">
-            {/* Workspace Selection for Organization Owners */}
-            {isCurrentUserOrgOwner && (
-              <div className="space-y-2">
-                <Label>Select Workspace</Label>
-                <Select 
-                  value={selectedWorkspaceId?.toString() || user?.currentWorkspaceId?.toString() || ""} 
-                  onValueChange={(value) => setSelectedWorkspaceId(parseInt(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a workspace" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allWorkspaces?.map((workspace) => (
-                      <SelectItem key={workspace.id} value={workspace.id.toString()}>
-                        {workspace.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!selectedWorkspaceId && (
-                  <p className="text-sm text-muted-foreground">
-                    Please select a workspace to assign roles to this user
-                  </p>
-                )}
+            {/* Current Workspace and User Information */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4 space-y-3 hover:shadow-lg hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200 hover:scale-[1.02]">
+              <div className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Current Workspace</Label>
               </div>
-            )}
+              <div className="pl-6">
+                <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{currentWorkspace?.name || 'Loading...'}</div>
+                <div className="text-xs text-purple-600 dark:text-purple-300">{currentWorkspace?.description}</div>
+              </div>
+              
+              <Separator className="bg-purple-200 dark:bg-purple-600" />
+              
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Target User</Label>
+              </div>
+              <div className="pl-6">
+                <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{selectedUser?.firstName} {selectedUser?.lastName}</div>
+                <div className="text-xs text-blue-600 dark:text-blue-300">{selectedUser?.email}</div>
+              </div>
+            </div>
             
             <div className="space-y-2">
               <Label>Available Roles</Label>
@@ -1053,10 +1012,8 @@ export default function AdminUserManagement() {
               {workspaceRoles && workspaceRoles.length === 0 && <p className="text-sm text-muted-foreground">No workspace roles available</p>}
               <div className="space-y-2">
                 {workspaceRoles?.map((role) => {
-                  const targetWorkspaceId = selectedWorkspaceId || user?.currentWorkspaceId;
-                  const isAlreadyAssigned = selectedWorkspaceId 
-                    ? getUserWorkspaceRolesForSelectedWorkspace(selectedUser?.id || '').some(uwr => uwr.roleId === role.id)
-                    : getUserCurrentWorkspaceRole(selectedUser?.id || '').some(uwr => uwr.roleId === role.id);
+                  const targetWorkspaceId = user?.currentWorkspaceId;
+                  const isAlreadyAssigned = getUserCurrentWorkspaceRole(selectedUser?.id || '').some(uwr => uwr.roleId === role.id);
                   
                   return (
                     <div key={role.id} className="flex items-center justify-between p-3 border rounded-lg">
@@ -1074,9 +1031,8 @@ export default function AdminUserManagement() {
                       <div className="flex gap-2">
                         {!isAlreadyAssigned ? (
                           <Button
-                            variant="default"
                             size="sm"
-                            disabled={assignWorkspaceRoleMutation.isPending || (isCurrentUserOrgOwner && !selectedWorkspaceId) || !canManageRoles()}
+                            disabled={assignWorkspaceRoleMutation.isPending || !canManageRoles()}
                             onClick={() => {
                               assignWorkspaceRoleMutation.mutate({ 
                                 userId: selectedUser?.id || '', 
@@ -1084,6 +1040,7 @@ export default function AdminUserManagement() {
                                 workspaceId: targetWorkspaceId
                               });
                             }}
+                            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:from-purple-600 disabled:hover:to-blue-600"
                           >
                             Assign
                           </Button>
@@ -1094,7 +1051,6 @@ export default function AdminUserManagement() {
                             </Badge>
                             {canManageRoles() && (
                               <Button
-                                variant="outline"
                                 size="sm"
                                 disabled={removeWorkspaceRoleMutation.isPending}
                                 onClick={() => {
@@ -1104,7 +1060,7 @@ export default function AdminUserManagement() {
                                     workspaceId: targetWorkspaceId
                                   });
                                 }}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:from-red-600 disabled:hover:to-red-700"
                               >
                                 <Minus className="h-3 w-3 mr-1" />
                                 Remove
@@ -1120,11 +1076,14 @@ export default function AdminUserManagement() {
             </div>
             
             <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => {
-                setShowWorkspaceRoleDialog(false);
-                setSelectedWorkspaceId(null);
-                setSelectedUser(null);
-              }}>
+              <Button 
+                onClick={() => {
+                  setShowWorkspaceRoleDialog(false);
+                  setSelectedUser(null);
+                }}
+                variant="outline"
+                className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200"
+              >
                 Close
               </Button>
             </div>
@@ -1307,6 +1266,7 @@ function PendingInvitationsSection() {
             <Button 
               onClick={() => handleAssignRole(invitation)}
               disabled={selectedUser !== invitation.id || !selectedWorkspace || !selectedRole || assignRoleMutation.isPending}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {assignRoleMutation.isPending ? 'Assigning...' : 'Assign Role'}
             </Button>
@@ -1459,11 +1419,19 @@ function UserSearchSection() {
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
         />
-        <Button onClick={handleSearch} disabled={isSearching}>
+        <Button 
+          onClick={handleSearch} 
+          disabled={isSearching}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        >
           {isSearching ? 'Searching...' : <Search className="h-4 w-4" />}
         </Button>
         {(searchQuery || (searchResults && searchResults.length > 0)) && (
-          <Button variant="outline" onClick={clearSearch} title="Clear search">
+          <Button 
+            onClick={clearSearch} 
+            title="Clear search"
+            className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all duration-200"
+          >
             <X className="h-4 w-4" />
           </Button>
         )}
@@ -1576,6 +1544,7 @@ function UserSearchSection() {
                 <Button 
                   onClick={() => handleAssignRole(searchUser)}
                   disabled={selectedUser !== searchUser.id || !selectedWorkspace || !selectedRole || assignRoleMutation.isPending}
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {assignRoleMutation.isPending ? 'Assigning...' : 'Assign Role'}
                 </Button>

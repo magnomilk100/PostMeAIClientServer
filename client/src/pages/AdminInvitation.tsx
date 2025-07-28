@@ -118,12 +118,11 @@ function PendingInvitationCard({ invitation }: { invitation: any }) {
         <Button
           onClick={() => resendMutation.mutate()}
           disabled={resendMutation.isPending || cancelMutation.isPending}
-          variant="outline"
           size="sm"
-          className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
           {resendMutation.isPending ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-700"></div>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
           ) : (
             <>
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -134,12 +133,11 @@ function PendingInvitationCard({ invitation }: { invitation: any }) {
         <Button
           onClick={() => cancelMutation.mutate()}
           disabled={cancelMutation.isPending || resendMutation.isPending}
-          variant="outline"
           size="sm"
-          className="border-red-300 text-red-700 hover:bg-red-100"
+          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
           {cancelMutation.isPending ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-700"></div>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
           ) : (
             <>
               <X className="h-4 w-4 mr-2" />
@@ -626,7 +624,7 @@ export default function AdminInvitation() {
                   type="button"
                   onClick={validateEmailHandler}
                   disabled={validateEmailMutation.isPending || !form.watch("email")}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {validateEmailMutation.isPending ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -751,7 +749,7 @@ export default function AdminInvitation() {
                 <Button
                   onClick={onSubmit}
                   disabled={isLoading || inviteUserMutation.isPending || !emailValidated}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isLoading || inviteUserMutation.isPending ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -864,9 +862,8 @@ export default function AdminInvitation() {
                               <Button
                                 onClick={() => handleResendInvitation(invitation.id)}
                                 disabled={resendMutation.isPending}
-                                variant="outline"
                                 size="sm"
-                                className="text-xs"
+                                className="text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                               >
                                 {resendMutation.isPending ? (
                                   <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
