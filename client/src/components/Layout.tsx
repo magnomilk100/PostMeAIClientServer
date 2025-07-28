@@ -18,6 +18,9 @@ import { useState, useEffect, useRef } from "react";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import OnboardingWizard from "@/pages/OnboardingWizard";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
+import { OrganizationSwitcher } from "@/components/OrganizationSwitcher";
+import { useAdminAccess } from "@/hooks/useOrganizationRole";
 
 // Main business navigation (most important features)
 const businessNavigation = [
@@ -35,7 +38,13 @@ const billingAdminNavigation = [
   { name: "Billing", href: "/billing", icon: CreditCard, requiresAuth: true },
   { name: "Subscription Plan", href: "/subscription-plan", icon: Crown, requiresAuth: true },
   { name: "Settings", href: "/settings", icon: Settings, requiresAuth: true },
+];
+
+// Administration navigation (separated section for admin users)
+const administrationNavigation = [
   { name: "Admin Invitations", href: "/admin/invitations", icon: UserPlus, requiresAuth: true, adminOnly: true },
+  { name: "User Management", href: "/admin/users", icon: Users, requiresAuth: true, adminOnly: true },
+  { name: "Workspace Management", href: "/admin/workspaces", icon: Shield, requiresAuth: true, adminOnly: true },
 ];
 
 // Learning and help navigation (separated section)
@@ -60,12 +69,14 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { hasAdminAccess, isOrganizationOwner, hasAdministratorRole, isLoading: adminAccessLoading } = useAdminAccess();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [onboardingVisible, setOnboardingVisible] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(256); // Default width in pixels
   const [isResizing, setIsResizing] = useState(false);
   const [billingAccordionOpen, setBillingAccordionOpen] = useState(false);
   const [learningAccordionOpen, setLearningAccordionOpen] = useState(false);
+  const [administrationAccordionOpen, setAdministrationAccordionOpen] = useState(false);
   const [shouldFlashChangePhoto, setShouldFlashChangePhoto] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const logoutMutation = useLogout();
@@ -235,13 +246,14 @@ export default function Layout({ children }: LayoutProps) {
 
   const getVisibleBillingAdminNavigation = () => {
     if (isAuthenticated) {
-      return billingAdminNavigation.filter(item => {
-        // Filter out admin-only items if user is not an admin
-        if (item.adminOnly && user?.role !== 'admin') {
-          return false;
-        }
-        return true;
-      });
+      return billingAdminNavigation;
+    }
+    return [];
+  };
+
+  const getVisibleAdministrationNavigation = () => {
+    if (isAuthenticated && !adminAccessLoading && hasAdminAccess) {
+      return administrationNavigation;
     }
     return [];
   };
@@ -303,11 +315,11 @@ export default function Layout({ children }: LayoutProps) {
             <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center animate-float shadow-lg">
               <Rocket className="text-white w-4 h-4" />
             </div>
-            <span className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent dark:bg-none dark:text-white">PostMe AI</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent dark:bg-none dark:text-white">PostMe AI</span>
           </div>
           
           {/* Center Navigation */}
-          <div className="flex-1 flex justify-center">
+          <div className="flex-1 flex justify-center items-center space-x-4">
             {isAuthenticated ? (
               /* Enhanced Search with Database Integration - Hidden on mobile */
               <div className="hidden md:flex flex-1 max-w-md mx-8 relative">
@@ -550,9 +562,8 @@ export default function Layout({ children }: LayoutProps) {
                   variant="ghost" 
                   size="sm" 
                   onClick={() => {
-                    console.log('Sign In clicked');
-                    window.location.href = '/login';
-                    //setLocation('/login');
+                    // Navigate to login page with Sign In tab focused on email field
+                    setLocation('/login?tab=login&focus=email');
                   }}
                 >
                   Sign In
@@ -560,9 +571,8 @@ export default function Layout({ children }: LayoutProps) {
                 <Button 
                   size="sm" 
                   onClick={() => {
-                    console.log('Get Started clicked');
-                    window.location.href = '/login';
-                    //setLocation('/login');
+                    // Navigate to login page with Get Started tab focused on firstName field
+                    setLocation('/login?tab=register&focus=firstName');
                   }}
                 >
                   Get Started
@@ -609,6 +619,12 @@ export default function Layout({ children }: LayoutProps) {
         <div className="flex-1 flex flex-col">
           <ScrollArea className="flex-1 p-4">
             <nav className="space-y-6">
+              {/* Organization Switcher - Above Workspace Switcher */}
+              <OrganizationSwitcher />
+              
+              {/* Workspace Switcher - Above Home Button */}
+              <WorkspaceSwitcher />
+              
               {/* Business Navigation Section */}
               <div className="space-y-1">
                 {getVisibleBusinessNavigation().map((item) => {
@@ -674,6 +690,55 @@ export default function Layout({ children }: LayoutProps) {
                                   isActive 
                                     ? "text-white" 
                                     : "text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                                }`} />
+                                <span>{item.name}</span>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+              
+              {/* Administration Accordion Section - Only for admin users */}
+              {isAuthenticated && getVisibleAdministrationNavigation().length > 0 && (
+                <>
+                  <div className="border-t border-gray-200 dark:border-gray-700"></div>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setAdministrationAccordionOpen(!administrationAccordionOpen)}
+                      className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                    >
+                      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Administration
+                      </h3>
+                      {administrationAccordionOpen ? (
+                        <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      )}
+                    </button>
+                    {administrationAccordionOpen && (
+                      <div className="space-y-1">
+                        {getVisibleAdministrationNavigation().map((item) => {
+                          const isActive = location === item.href;
+                          const IconComponent = item.icon;
+                          return (
+                            <Link key={item.name} href={item.href}>
+                              <div 
+                                className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-all duration-300 group interactive-hover ${
+                                  isActive
+                                    ? "bg-gradient-to-r from-red-500 to-purple-600 text-white shadow-lg"
+                                    : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-50 hover:to-red-50 dark:hover:text-white dark:hover:from-gray-700 dark:hover:to-red-900/20"
+                                }`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                              >
+                                <IconComponent className={`w-5 h-5 transition-all duration-300 ${
+                                  isActive 
+                                    ? "text-white" 
+                                    : "text-gray-500 group-hover:text-red-600 dark:group-hover:text-red-400"
                                 }`} />
                                 <span>{item.name}</span>
                               </div>

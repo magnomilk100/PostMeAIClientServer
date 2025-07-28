@@ -122,7 +122,11 @@ export default function ManualPostStep6() {
     });
   }
 
-  const selectedPlatforms = platforms.filter(p => wizardData.platforms?.includes(p.id)) || [];
+  // Get selected platforms from Step 2 (Configure Post for Each Platform) 
+  const selectedPlatforms = platforms.filter(p => {
+    const platformContent = wizardData.step3PlatformContent?.[p.id];
+    return platformContent?.active === true;
+  }) || [];
   const postData = wizardData.step1Data || {};
   const selectedImages = wizardData.selectedImages || [];
   const links = wizardData.links || {};

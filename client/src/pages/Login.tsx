@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useLogin, useRegister } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { ConsentModal, useConsentStatus } from "@/components/ConsentModal";
 import { FaFacebook, FaGoogle, FaLinkedin } from "react-icons/fa";
 import { Loader2, LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -54,6 +55,46 @@ export default function Login({ initialTab = "login", focusField = "email" }: Lo
   const [passwordRequirements, setPasswordRequirements] = useState<PasswordRequirement[]>(createPasswordRequirements());
   const emailRef = useRef<HTMLInputElement>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
+
+  // Consent Modal Integration - show only on login attempts
+  const { hasConsent, consentData } = useConsentStatus();
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingLoginAction, setPendingLoginAction] = useState<(() => void) | null>(null);
+
+  // Handle consent completion
+  const handleConsentComplete = (consentData: any) => {
+    setShowConsentModal(false);
+    toast({
+      title: "Preferences Saved", 
+      description: "Your privacy preferences have been saved. Continuing with login...",
+    });
+    
+    // Execute the pending login action after consent
+    if (pendingLoginAction) {
+      pendingLoginAction();
+      setPendingLoginAction(null);
+    }
+  };
+
+  // Check consent before login attempts
+  const checkConsentBeforeLogin = (loginAction: () => void) => {
+    if (hasConsent === false) {
+      setPendingLoginAction(() => loginAction);
+      setShowConsentModal(true);
+    } else {
+      loginAction();
+    }
+  };
+
+  // Handle consent rejection
+  const handleConsentReject = () => {
+    setShowConsentModal(false);
+    toast({
+      title: "Access Denied",
+      description: "You must accept the Privacy Policy and Terms of Use to use this application.",
+      variant: "destructive",
+    });
+  };
   
   // Auto-focus on appropriate field when tab changes or component mounts
   useEffect(() => {
@@ -103,8 +144,9 @@ export default function Login({ initialTab = "login", focusField = "email" }: Lo
   });
 
   const onLogin = (data: LoginForm) => {
-    loginMutation.mutate(data, {
-      onSuccess: () => {
+    checkConsentBeforeLogin(() => {
+      loginMutation.mutate(data, {
+        onSuccess: () => {
         // Save last auth method
         localStorage.setItem("lastAuthMethod", "local");
         toast({
@@ -131,9 +173,11 @@ export default function Login({ initialTab = "login", focusField = "email" }: Lo
         });
       },
     });
+    });
   };
 
   const onRegister = (data: RegisterForm) => {
+    // Registration should NOT require consent - consent is only for login attempts
     registerMutation.mutate(data, {
       onSuccess: (response: any) => {
         // Check if verification is required
@@ -211,38 +255,73 @@ export default function Login({ initialTab = "login", focusField = "email" }: Lo
               <p className="text-sm text-gray-600 text-center">Quick & secure sign-in:</p>
               
               {/* Google OAuth */}
-              <a href="/auth/google" className="block w-full" onClick={() => localStorage.setItem("lastAuthMethod", "google")}>
-                <Button
-                  variant="outline"
-                  className="w-full justify-center bg-[#DB4437] hover:bg-[#C23321] border-2 border-[#DB4437] text-white font-medium py-3"
-                  type="button"
-                >
-                  <FaGoogle className="mr-3 w-5 h-5 text-white" />
-                  Continue with Google
-                </Button>
-              </a>
+              <Button
+                variant="outline"
+                className="w-full justify-center bg-[#DB4437] hover:bg-[#C23321] border-2 border-[#DB4437] text-white font-medium py-3"
+                type="button"
+                onClick={() => {
+                  // Only check consent for login attempts, not registration
+                  if (activeTab === "login") {
+                    checkConsentBeforeLogin(() => {
+                      localStorage.setItem("lastAuthMethod", "google");
+                      window.location.href = "/auth/google";
+                    });
+                  } else {
+                    // Registration via OAuth - no consent required
+                    localStorage.setItem("lastAuthMethod", "google");
+                    window.location.href = "/auth/google";
+                  }
+                }}
+              >
+                <FaGoogle className="mr-3 w-5 h-5 text-white" />
+                Continue with Google
+              </Button>
+
               {/* Facebook OAuth */}
-              <a href="/auth/facebook" className="block w-full" onClick={() => localStorage.setItem("lastAuthMethod", "facebook")}>
-                <Button
-                  variant="outline"
-                  className="w-full justify-center bg-[#1877F2] hover:bg-[#166FE5] border-2 border-[#1877F2] text-white font-medium py-3"
-                  type="button"
-                >
-                  <FaFacebook className="mr-3 w-5 h-5 text-white" />
-                  Continue with Facebook
-                </Button>
-              </a>
+              <Button
+                variant="outline"
+                className="w-full justify-center bg-[#1877F2] hover:bg-[#166FE5] border-2 border-[#1877F2] text-white font-medium py-3"
+                type="button"
+                onClick={() => {
+                  // Only check consent for login attempts, not registration
+                  if (activeTab === "login") {
+                    checkConsentBeforeLogin(() => {
+                      localStorage.setItem("lastAuthMethod", "facebook");
+                      window.location.href = "/auth/facebook";
+                    });
+                  } else {
+                    // Registration via OAuth - no consent required
+                    localStorage.setItem("lastAuthMethod", "facebook");
+                    window.location.href = "/auth/facebook";
+                  }
+                }}
+              >
+                <FaFacebook className="mr-3 w-5 h-5 text-white" />
+                Continue with Facebook
+              </Button>
+
               {/* LinkedIn OAuth */}
-              <a href="/auth/linkedin" className="block w-full" onClick={() => localStorage.setItem("lastAuthMethod", "linkedin")}>
-                <Button
-                  variant="outline"
-                  className="w-full justify-center bg-[#0A66C2] hover:bg-[#084890] border-2 border-[#0A66C2] text-white font-medium py-3"
-                  type="button"
-                >
-                  <FaLinkedin className="mr-3 w-5 h-5 text-white" />
-                  Continue with LinkedIn
-                </Button>
-              </a>
+              <Button
+                variant="outline"
+                className="w-full justify-center bg-[#0A66C2] hover:bg-[#084890] border-2 border-[#0A66C2] text-white font-medium py-3"
+                type="button"
+                onClick={() => {
+                  // Only check consent for login attempts, not registration
+                  if (activeTab === "login") {
+                    checkConsentBeforeLogin(() => {
+                      localStorage.setItem("lastAuthMethod", "linkedin");
+                      window.location.href = "/auth/linkedin";
+                    });
+                  } else {
+                    // Registration via OAuth - no consent required
+                    localStorage.setItem("lastAuthMethod", "linkedin");
+                    window.location.href = "/auth/linkedin";
+                  }
+                }}
+              >
+                <FaLinkedin className="mr-3 w-5 h-5 text-white" />
+                Continue with LinkedIn
+              </Button>
             </div>
 
             <div className="relative">
@@ -256,7 +335,7 @@ export default function Login({ initialTab = "login", focusField = "email" }: Lo
               </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "login" | "register")} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Sign In</TabsTrigger>
                 <TabsTrigger value="register">Get Started</TabsTrigger>
@@ -457,6 +536,13 @@ export default function Login({ initialTab = "login", focusField = "email" }: Lo
           </div>
         </CardContent>
       </Card>
+
+      {/* Consent Modal */}
+      <ConsentModal 
+        isOpen={showConsentModal} 
+        onConsent={handleConsentComplete}
+        onClose={handleConsentReject}
+      />
     </div>
   );
 }

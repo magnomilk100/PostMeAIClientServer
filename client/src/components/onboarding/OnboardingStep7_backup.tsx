@@ -10,18 +10,8 @@ interface OnboardingStep7Props {
 }
 
 export default function OnboardingStep7({ data, updateData }: OnboardingStep7Props) {
-  const handleOrganizationNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateData({ organizationName: e.target.value });
-  };
-
   const handleWorkspaceNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateData({ workspaceName: e.target.value });
-  };
-
-  const generateOrganizationName = () => {
-    const now = new Date();
-    const timestamp = now.toISOString().replace(/[-T:]/g, '').replace(/\..+/, '').slice(0, 14); // ddmmyyyyhhmmss
-    return `MyOrg_${timestamp}`;
   };
 
   const generateWorkspaceName = () => {
@@ -38,8 +28,7 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
     }
   };
 
-  const suggestedOrgName = generateOrganizationName();
-  const suggestedWorkspaceName = generateWorkspaceName();
+  const suggestedName = generateWorkspaceName();
 
   return (
     <div className="space-y-6">
@@ -49,9 +38,9 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
             <Building className="w-8 h-8 text-white" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold">Create Your Organization & Workspace</h2>
+        <h2 className="text-2xl font-bold">Create Your Workspace</h2>
         <p className="text-muted-foreground">
-          Set up your organization and workspace to manage your social media content and collaborate with your team
+          Your workspace is where you'll manage your social media content and collaborate with your team
         </p>
       </div>
 
@@ -65,30 +54,7 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
             Choose a name for your workspace that reflects your brand or organization
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="organizationName">Organization Name</Label>
-            <Input
-              id="organizationName"
-              value={data.organizationName}
-              onChange={handleOrganizationNameChange}
-              placeholder="Enter organization name"
-              className="text-lg"
-            />
-            {data.organizationName.trim() === '' && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Suggestion:</span>
-                <button
-                  type="button"
-                  onClick={() => updateData({ organizationName: suggestedOrgName })}
-                  className="text-purple-600 hover:text-purple-700 underline"
-                >
-                  {suggestedOrgName}
-                </button>
-              </div>
-            )}
-          </div>
-          
+        <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="workspaceName">Workspace Name</Label>
             <Input
@@ -103,10 +69,10 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
                 <span>Suggestion:</span>
                 <button
                   type="button"
-                  onClick={() => updateData({ workspaceName: suggestedWorkspaceName })}
+                  onClick={() => updateData({ workspaceName: suggestedName })}
                   className="text-purple-600 hover:text-purple-700 underline"
                 >
-                  {suggestedWorkspaceName}
+                  {suggestedName}
                 </button>
               </div>
             )}

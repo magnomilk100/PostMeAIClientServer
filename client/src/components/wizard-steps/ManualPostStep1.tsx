@@ -14,12 +14,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { useWizard } from "@/contexts/WizardContext";
 import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+
 import {
   FileText,
   Sparkles,
-  Target,
   Wand2,
-  CheckCircle,
   Hash,
   Lightbulb,
   TrendingUp,
@@ -76,13 +76,6 @@ export default function ManualPostStep1() {
     }
   }, [existingData]);
 
-  // Set default platforms (all platforms selected) if not already set
-  useEffect(() => {
-    if (!wizardData.platforms || wizardData.platforms.length === 0) {
-      const allPlatforms = ["facebook", "instagram", "linkedin", "tiktok", "youtube", "discord", "telegram"];
-      updateWizardData({ platforms: allPlatforms });
-    }
-  }, []);
   const generateAIContent = async () => {
     if (!aiSubject.trim()) {
       toast({
@@ -297,7 +290,7 @@ export default function ManualPostStep1() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="flex items-center gap-2">
-                      <Target className="h-4 w-4" />
+                      <FileText className="h-4 w-4" />
                       Post Title *
                       {useAI && field.value && (
                         <Badge variant="outline" className="ml-auto text-xs bg-purple-50 text-purple-700 border-purple-300">

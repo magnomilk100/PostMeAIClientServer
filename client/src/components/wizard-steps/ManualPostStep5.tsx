@@ -766,25 +766,32 @@ export default function ManualPostStep5() {
                   )
                 )}
 
-                {/* Platform Icons */}
-                {wizardData.platforms && wizardData.platforms.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-standard">Selected Platforms</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {wizardData.platforms.map((platform) => {
-                        const config = platformConfigs[platform as keyof typeof platformConfigs];
-                        if (!config) return null;
-                        const Icon = config.icon;
-                        return (
-                          <div key={platform} className="flex items-center space-x-2 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full">
-                            <Icon className="h-4 w-4" style={{ color: config.color }} />
-                            <span className="text-sm text-standard">{config.name}</span>
-                          </div>
-                        );
-                      })}
+                {/* Target Platforms */}
+                {(() => {
+                  // Get selected platforms from Step 2 (Configure Post for Each Platform)
+                  const selectedPlatforms = Object.entries(wizardData.step3PlatformContent || {})
+                    .filter(([_, content]: [string, any]) => content?.active === true)
+                    .map(([platformId]) => platformId);
+                  
+                  return selectedPlatforms && selectedPlatforms.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-standard">Target Platforms ({selectedPlatforms.length})</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPlatforms.map((platform) => {
+                          const config = platformConfigs[platform as keyof typeof platformConfigs];
+                          if (!config) return null;
+                          const Icon = config.icon;
+                          return (
+                            <div key={platform} className="flex items-center space-x-2 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full">
+                              <Icon className="h-4 w-4" style={{ color: config.color }} />
+                              <span className="text-sm text-standard">{config.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Total Active Schedules */}
                 <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg">

@@ -183,6 +183,122 @@ export async function sendWelcomeEmail(email: string, firstName?: string): Promi
     return false;
   }
 }
+
+export async function sendUserInvitationEmail(email: string, invitationKey: string, inviterName: string, userRole: string | null): Promise<{success: boolean, error?: string}> {
+  try {
+    const baseUrl = (() => {
+      if (process.env.NODE_ENV === 'production') {
+        return 'https://postmeai.com';
+      }
+      if (process.env.REPLIT_DEV_DOMAIN) {
+        return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+      }
+      if (process.env.REPL_SLUG) {
+        return `https://${process.env.REPL_SLUG}--${process.env.REPL_OWNER || 'user'}.replit.app`;
+      }
+      return 'http://localhost:5000';
+    })();
+
+    const invitationUrl = `${baseUrl}/join-invitation?key=${invitationKey}`;
+    
+    console.log('Invitation email URL generation:', {
+      baseUrl,
+      invitationUrl,
+      REPLIT_DEV_DOMAIN: process.env.REPLIT_DEV_DOMAIN,
+      NODE_ENV: process.env.NODE_ENV
+    });
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'PostMeAI <contact@postmeai.com>',
+      to: email,
+      subject: `${inviterName} invited you to join PostMeAI`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">You're Invited to PostMeAI!</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Turn Ideas into Viral Content</p>
+          </div>
+          
+          <div style="background: white; padding: 40px; border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h2 style="color: #333; margin-top: 0;">Welcome to the Team!</h2>
+            <p style="color: #666; font-size: 16px; line-height: 1.5;">
+              <strong>${inviterName}</strong> has invited you to join PostMeAI. 
+              You'll be able to create amazing social media content and collaborate with your team.
+            </p>
+            
+            <div style="background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #1e293b; margin-top: 0; font-size: 18px;">Join Your Team</h3>
+              <p style="color: #64748b; font-size: 14px; margin: 0;">
+                Your admin will assign your role and permissions after you join.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${invitationUrl}" 
+                 style="background: #667eea !important; 
+                        color: #ffffff !important; 
+                        padding: 15px 30px !important; 
+                        text-decoration: none !important; 
+                        border-radius: 5px !important; 
+                        font-weight: bold !important; 
+                        display: inline-block !important;
+                        font-size: 16px !important;
+                        border: none !important;
+                        text-align: center !important;">
+                Join PostMeAI
+              </a>
+            </div>
+            
+            <div style="background: #f0f9ff; border: 2px solid #0284c7; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #0c4a6e; margin-top: 0; font-size: 16px;">Next Steps:</h3>
+              <ol style="color: #0c4a6e; padding-left: 20px; margin: 10px 0;">
+                <li>Click the "Join PostMeAI" button above</li>
+                <li>Set up your secure password</li>
+                <li>Wait for admin approval to activate your account</li>
+                <li>Start creating amazing content!</li>
+              </ol>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; font-size: 14px;">
+                Best regards,<br>
+                The PostMeAI Team
+              </p>
+              <p style="color: #999; font-size: 12px; margin-top: 10px;">
+                Need help? Contact us at support@postmeai.com
+              </p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    return {success: true};
+  } catch (error: any) {
+    console.error('Failed to send user invitation email:', error);
+    
+    // Provide specific error messages based on error type
+    let errorMessage = "Failed to send invitation email";
+    
+    if (error.code === 'EENVELOPE' && error.response) {
+      if (error.response.includes('nullMX')) {
+        errorMessage = `Email domain "${email.split('@')[1]}" does not accept mail. Please verify the email address or use a different email provider.`;
+      } else if (error.response.includes('Recipient address rejected')) {
+        errorMessage = `The email address "${email}" was rejected by the mail server. Please verify the email address is correct.`;
+      } else {
+        errorMessage = `Email delivery failed: ${error.response}`;
+      }
+    } else if (error.code === 'ECONNECTION') {
+      errorMessage = "Unable to connect to email server. Please try again later.";
+    } else if (error.code === 'EAUTH') {
+      errorMessage = "Email authentication failed. Please contact system administrator.";
+    }
+    
+    return {success: false, error: errorMessage};
+  }
+}
+
 export async function sendPasswordResetEmail(email: string, token: string): Promise<boolean> {
   try {
     console.log('Attempting to send password reset email to:', email);

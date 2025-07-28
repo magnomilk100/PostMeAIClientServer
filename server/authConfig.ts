@@ -24,6 +24,7 @@ export const authConfig = {
     subscriptionPlan: 'pro',
     subscriptionStatus: 'active',
     onboardingCompleted: true,
+    currentWorkspaceId: 2, // Default workspace for anonymous users
     createdAt: new Date(),
     updatedAt: new Date()
   }
@@ -38,13 +39,18 @@ export function isAuthRequired(path: string): boolean {
 // Middleware factory for optional auth
 export function createAuthMiddleware(requireAuth: boolean = true) {
   return (req: any, res: any, next: any) => {
+    // Debug logging for user session tracking
+    if (req.url.includes('admin') || req.url.includes('organization') || req.url.includes('workspace')) {
+      console.log('?? AUTH MIDDLEWARE DEBUG - URL:', req.url, 'Method:', req.method, 'User:', req.user?.id, 'Session ID:', req.sessionID);
+    }
+    
     // If auth is disabled globally, inject default user
     if (!authConfig.enabled) {
       req.user = authConfig.defaultUser;
       return next();
     }
     
-    // If auth is enabled but not required for this route
+    // If auth is enabled but not required for this route, still pass through user if available
     if (!requireAuth) {
       return next();
     }

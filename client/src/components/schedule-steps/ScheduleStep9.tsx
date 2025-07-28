@@ -56,14 +56,18 @@ export default function ScheduleStep7() {
 
   // Transform wizard data into database format
   const transformScheduleData = () => {
+    // Get selected platforms from platformStates (actual user selection)
+    const actualSelectedPlatforms = Object.entries(scheduleData.platformStates || {})
+      .filter(([_, isActive]) => isActive === true)
+      .map(([platform, _]) => platform);
+
     // Database expects JSON format for these fields
     return {
       name: scheduleName,
       description: scheduleDescription.trim() || null,
       creationMode: scheduleData.creationMode,
-      selectedPlatforms: scheduleData.selectedPlatforms,
+      platforms: actualSelectedPlatforms, // Use the correct platform selection and correct field name
       platformConfigs: scheduleData.platformConfigs, // Will be stored as JSONB
-      scheduleType: scheduleData.scheduleConfig.type,
       scheduleConfig: scheduleData.scheduleConfig, // Will be stored as JSONB
       links: scheduleData.links, // Will be stored as JSONB
       isActive: true,
@@ -82,8 +86,10 @@ export default function ScheduleStep7() {
     }
     
     setLoading(true);
-    const scheduleData = transformScheduleData();
-    saveScheduleMutation.mutate(scheduleData);
+    const scheduleDataToSend = transformScheduleData();
+    console.log("Sending schedule data to API:", scheduleDataToSend);
+    console.log("Raw wizard data (for debugging):", scheduleData);
+    saveScheduleMutation.mutate(scheduleDataToSend);
   };
 
   const handleCreateAnother = () => {

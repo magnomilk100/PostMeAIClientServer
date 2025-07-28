@@ -1,17 +1,155 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPostSchema, insertGeneratedContentSchema, insertPublishedPostSchema, insertTemplateSchema, localAuthSchema, insertImageSchema, type InsertImage } from "@shared/schema";
+import { insertPostSchema, insertGeneratedContentSchema, insertPublishedPostSchema, insertTemplateSchema, insertImageSchema, type InsertImage, users, userWorkspaces, userOrganizations, workspaces, workspaceRoles, userWorkspaceRoles } from "@shared/schema";
 import { PaymentGatewayFactory, type PaymentData, validateCardNumber, validateCVV, validateExpiryDate } from "./paymentGateways";
 import { z } from "zod";
 import { setupAuth, requireAuth, optionalAuth } from "./auth";
 import passport from "passport";
 import multer from "multer";
-import { generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, generatePasswordResetToken, sendPasswordResetEmail } from "./email";
+import { generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, generatePasswordResetToken, sendPasswordResetEmail, sendUserInvitationEmail as sendInvitationEmail } from "./email";
+import { insertUserInvitationSchema } from "@shared/schema";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
+// Extend Express session to include invitationKey
+declare module 'express-session' {
+  interface SessionData {
+    invitationKey?: string;
+  }
+}
+
+// Local authentication schema for registration
+const localAuthSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Password confirmation must be at least 6 characters"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required")
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+});
+
+// Enhanced multi-tenancy middleware for enforcing organization and workspace isolation
+// Following best practices: ALL API requests are scoped by organization_id and workspace_id
+function enforceMultiTenancy(req: any): { organizationId: number; workspaceId: number } {
+  // Always enforce organization/workspace scoping - never allow implicit cross-organization queries
+  if (!req.user?.currentWorkspaceId || !req.user?.currentOrganizationId) {
+    if (req.user?.id === 'anonymous') {
+      return { organizationId: 1, workspaceId: 2 }; // Default organization and workspace for anonymous users
+    }
+    throw new Error("No organization/workspace context available");
+  }
+  
+  // Additional validation: ensure workspace belongs to the current organization
+  if (req.user.currentWorkspaceId && req.user.currentOrganizationId) {
+    // This validation should be done at the database level for security
+    // The middleware ensures we never allow cross-organization access
+    return { 
+      organizationId: req.user.currentOrganizationId, 
+      workspaceId: req.user.currentWorkspaceId 
+    };
+  }
+  
+  throw new Error("Invalid organization/workspace context");
+}
+
+// Validate that user has access to the specified organization and workspace
+async function validateTenantAccess(req: any, organizationId: number, workspaceId: number): Promise<boolean> {
+  // Check if user has access to the organization
+  const userOrganization = await storage.getUserOrganization(req.user.id, organizationId);
+  if (!userOrganization) {
+    return false;
+  }
+  
+  // Check if user has access to the workspace
+  const userWorkspace = await storage.getUserWorkspaceMembership(req.user.id, workspaceId);
+  if (!userWorkspace) {
+    return false;
+  }
+  
+  // Ensure workspace belongs to the organization
+  const workspace = await storage.getWorkspace(workspaceId);
+  if (!workspace || workspace.organizationId !== organizationId) {
+    return false;
+  }
+  
+  return true;
+}
+
+// Helper function to get current organization and workspace context for authenticated user
+function getCurrentContext(req: any): { organizationId: number; workspaceId: number } {
+  return enforceMultiTenancy(req);
+}
+
+// Legacy helper functions for backward compatibility
+function getCurrentWorkspaceId(req: any): number {
+  return getCurrentContext(req).workspaceId;
+}
+
+function getCurrentOrganizationId(req: any): number {
+  return getCurrentContext(req).organizationId;
+}
 
 import dotenv from "dotenv";
 dotenv.config();
+
+// Helper function to check if user has admin access (organization owner OR workspace administrator)
+async function hasAdminAccess(userId: string, organizationId: number): Promise<boolean> {
+  try {
+    console.log('🔍 hasAdminAccess DEBUG - UserId:', userId, 'OrgId:', organizationId);
+    
+    // Check if user is organization owner
+    const orgRole = await storage.getUserOrganization(userId, organizationId);
+    console.log('🔍 hasAdminAccess - OrgRole:', orgRole);
+    if (orgRole && orgRole.role === 'owner' && orgRole.isActive) {
+      console.log('🔍 hasAdminAccess - Organization owner detected, granting access');
+      return true;
+    }
+
+    // Check if user has administrator role in any workspace within this organization
+    const workspaceRoles = await storage.getUserWorkspaceRoles(userId, organizationId);
+    console.log('🔍 hasAdminAccess - WorkspaceRoles:', workspaceRoles);
+    
+    const hasAdministratorRole = workspaceRoles.some(role => {
+      console.log('🔍 hasAdminAccess - Checking role:', JSON.stringify(role, null, 2));
+      // Handle different possible structures based on how getUserWorkspaceRoles is called:
+      // 1. Direct role string in role.role
+      // 2. Nested object in role.role.name  
+      // 3. Role might be directly available as a string field
+      let roleStr = '';
+      
+      if (typeof role.role === 'string') {
+        roleStr = role.role;
+        console.log('🔍 hasAdminAccess - Found role.role as string:', roleStr);
+      } else if (role.role && typeof role.role === 'object' && role.role.name) {
+        roleStr = role.role.name;
+        console.log('🔍 hasAdminAccess - Found role.role.name:', roleStr);
+      } else if (role.roleName) {
+        roleStr = role.roleName;
+        console.log('🔍 hasAdminAccess - Found role.roleName:', roleStr);
+      } else if (role.name) {
+        roleStr = role.name;
+        console.log('🔍 hasAdminAccess - Found role.name:', roleStr);
+      } else {
+        console.log('🔍 hasAdminAccess - No recognizable role field found in:', Object.keys(role));
+      }
+      
+      const isActive = role.isActive !== false; // Default to true if undefined
+      console.log('🔍 hasAdminAccess - Role string extracted:', roleStr, 'IsActive:', isActive, 'Is Administrator?:', roleStr === 'administrator');
+      return roleStr === 'administrator' && isActive;
+    });
+
+    console.log('🔍 hasAdminAccess - Has administrator role:', hasAdministratorRole);
+    return hasAdministratorRole;
+  } catch (error) {
+    console.error('Error checking admin access:', error);
+    return false;
+  }
+}
 
 const SUPPORTED_LANGUAGES = [
   { code: "en", name: "English" },
@@ -172,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to get the correct base URL
   const getBaseUrl = () => {
     if (process.env.NODE_ENV === 'production') {
-      return 'https://postmeai.com';
+      return 'https://www.postmeai.com';
     }
     if (process.env.REPLIT_DEV_DOMAIN) {
       return `https://${process.env.REPLIT_DEV_DOMAIN}`;
@@ -181,6 +319,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   // Setup authentication
   setupAuth(app);
+
+  // Consent audit logging endpoint - placed before auth endpoints as it needs to be accessible without authentication
+  app.post("/api/consent/log", async (req: any, res) => {
+    try {
+      const { 
+        userId, 
+        email,
+        sessionId,
+        consentAction,
+        privacyPolicyAccepted,
+        termsOfUseAccepted,
+        mandatoryCookies,
+        analyticsCookies,
+        personalizationCookies,
+        marketingCookies,
+        consentData 
+      } = req.body;
+
+      if (!consentAction || (!userId && !email && !sessionId)) {
+        return res.status(400).json({ 
+          message: "Missing required fields: consentAction and at least one of (userId, email, sessionId)" 
+        });
+      }
+
+      const auditEntry = await storage.logConsentDecision({
+        userId: userId || null,
+        email: email || null,
+        sessionId: sessionId || null,
+        consentAction,
+        privacyPolicyAccepted: Boolean(privacyPolicyAccepted),
+        termsOfUseAccepted: Boolean(termsOfUseAccepted),
+        mandatoryCookies: Boolean(mandatoryCookies),
+        analyticsCookies: Boolean(analyticsCookies),
+        personalizationCookies: Boolean(personalizationCookies),
+        marketingCookies: Boolean(marketingCookies),
+        userAgent: req.get('User-Agent') || null,
+        ipAddress: req.ip || req.connection.remoteAddress || null,
+        consentTimestamp: new Date(),
+        consentData: consentData || null
+      });
+
+      res.json({ success: true, id: auditEntry.id });
+    } catch (error) {
+      console.error("Error logging consent decision:", error);
+      res.status(500).json({ message: "Failed to log consent decision" });
+    }
+  });
 
   // Authentication routes
   app.post("/api/auth/register", async (req, res) => {
@@ -466,6 +651,809 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to reset password" });
     }
   });
+
+  // Get user's organization role
+  app.get("/api/user/organization-role", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      const organizationRole = await storage.getUserOrganization(userId, organizationId);
+      if (!organizationRole) {
+        return res.status(404).json({ message: "Organization role not found" });
+      }
+      
+      res.json(organizationRole);
+    } catch (error) {
+      console.error('Get organization role error:', error);
+      res.status(500).json({ message: "Failed to fetch organization role" });
+    }
+  });
+
+  // Get user's workspace roles
+  app.get("/api/user/workspace-roles", requireAuth, async (req: any, res) => {
+    try {
+
+
+
+
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      const workspaceRoles = await storage.getUserWorkspaceRoles(userId, organizationId);
+      console.log("*****************************************");
+      console.log("*****************************************");
+      console.log("In /api/user/workspace-roles");
+      console.log("workspaceRoles");
+      console.log(workspaceRoles);
+      console.log("*****************************************");
+      console.log("*****************************************");
+      res.json(workspaceRoles || []);
+    } catch (error) {
+      console.error('Get workspace roles error:', error);
+      res.status(500).json({ message: "Failed to fetch workspace roles" });
+    }
+  });
+
+  // Email validation endpoint for invitations
+  app.post("/api/admin/validate-email", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Check if user already exists in the database
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ 
+          exists: true,
+          message: "This email is already registered in the system",
+          userInfo: {
+            firstName: existingUser.firstName,
+            lastName: existingUser.lastName,
+            accountStatus: existingUser.accountStatus,
+            userRole: existingUser.userRole
+          }
+        });
+      }
+
+      // Check if there's already a pending invitation for this email
+      const existingInvitations = await storage.getUserInvitationsByEmail(email, organizationId);
+      const pendingInvitation = existingInvitations.find(inv => inv.status === 'pending' || inv.status === 'password_set');
+      
+      if (pendingInvitation) {
+        return res.status(400).json({ 
+          exists: true,
+          message: "There is already a pending invitation for this email",
+          invitationInfo: {
+            status: pendingInvitation.status,
+            invitedAt: pendingInvitation.invitedAt,
+            expiresAt: pendingInvitation.expiresAt
+          }
+        });
+      }
+
+      // Email is available for invitation
+      res.json({ 
+        exists: false,
+        message: "Email is available for invitation" 
+      });
+    } catch (error) {
+      console.error('Email validation error:', error);
+      res.status(500).json({ message: "Failed to validate email" });
+    }
+  });
+
+  // Admin User Invitation API endpoints
+  app.post("/api/admin/invite-user", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const { email, expirationMinutes, workspaceRoles } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      if (!expirationMinutes || expirationMinutes < 10 || expirationMinutes > 60) {
+        return res.status(400).json({ message: "Expiration time must be between 10 and 60 minutes" });
+      }
+
+      if (!workspaceRoles || !Array.isArray(workspaceRoles) || workspaceRoles.length === 0) {
+        return res.status(400).json({ message: "At least one workspace role assignment is required" });
+      }
+
+      // Enhanced multi-tenancy validation for invitations      
+      const inviter = await storage.getUser(userId);
+      
+      // Get all workspaces for the organization to validate workspace IDs
+      const organizationWorkspaces = await storage.getWorkspacesByOrganizationId(organizationId);
+      const validWorkspaceIds = organizationWorkspaces.map(w => w.id);
+      
+      // Validate all workspace IDs in the request
+      for (const assignment of workspaceRoles) {
+        if (!validWorkspaceIds.includes(assignment.workspaceId)) {
+          return res.status(400).json({ message: `Invalid workspace ID: ${assignment.workspaceId}` });
+        }
+      }
+      
+      // Check if user is already a member of any workspace
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        // Check if user is already a member of any workspace in this organization
+        for (const assignment of workspaceRoles) {
+          const existingMembership = await storage.getUserWorkspaceMembership(existingUser.id, assignment.workspaceId);
+          if (existingMembership) {
+            const workspace = organizationWorkspaces.find(w => w.id === assignment.workspaceId);
+            return res.status(400).json({ message: `User is already a member of workspace: ${workspace?.name}` });
+          }
+        }
+      }
+
+      // Check if invitation already exists for this email
+      const existingInvitations = await storage.getUserInvitationsByUserId(userId, workspaceRoles[0].workspaceId);
+      const existingInvitation = existingInvitations.find(inv => inv.email === email && inv.status !== 'expired');
+      if (existingInvitation) {
+        return res.status(400).json({ message: "Invitation already sent to this email" });
+      }
+
+      // Generate unique invitation key
+      const invitationKey = crypto.randomBytes(32).toString('hex');
+
+      // Create invitation record with enforced multi-tenancy context
+      const invitation = await storage.createUserInvitation({
+        organizationId,
+        email,
+        invitationKey,
+        invitedByUserId: userId,
+        expirationMinutes,
+        status: 'pending',
+        invitedAt: new Date(),
+        expiresAt: new Date(Date.now() + expirationMinutes * 60 * 1000), // X minutes from now
+      });
+
+      // Create workspace role assignments for the invitation
+      const roleAssignments = workspaceRoles.map(assignment => ({
+        invitationId: invitation.id,
+        workspaceId: assignment.workspaceId,
+        roles: assignment.roles, // Array of role names
+      }));
+
+      await storage.createInvitationWorkspaceRoles(roleAssignments);
+
+      // Send invitation email with workspace information
+      console.log('📧 Attempting to send invitation email to:', email, 'with key:', invitationKey.substring(0, 8) + '...');
+      const emailResult = await sendInvitationEmail(
+        email,
+        invitationKey,
+        expirationMinutes
+      );
+
+      console.log('📧 Email sending result:', emailResult);
+      if (!emailResult.success) {
+        console.error('📧 Failed to send invitation email to:', email, 'Error:', emailResult.error);
+        return res.status(500).json({ 
+          message: emailResult.error || "Failed to send invitation email"
+        });
+      }
+      console.log('✅ Successfully sent invitation email to:', email);
+
+      res.json({
+        message: "Invitation with workspace role assignments sent successfully",
+        invitation: {
+          id: invitation.id,
+          email: invitation.email,
+          status: invitation.status,
+          invitedAt: invitation.invitedAt,
+          expiresAt: invitation.expiresAt,
+          workspaceAssignments: workspaceRoles.length
+        }
+      });
+    } catch (error) {
+      console.error('Admin invite user error:', error);
+      res.status(500).json({ message: "Failed to send invitation" });
+    }
+  });
+
+  // Get workspaces for invitation page
+  app.get("/api/admin/workspaces", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      console.log('🔑 ADMIN WORKSPACES ACCESS ATTEMPT - UserId:', userId, 'OrgId:', organizationId);
+      
+      // Check if user has admin privileges
+      const hasAccess = await hasAdminAccess(userId, organizationId);
+      console.log('🔑 ADMIN WORKSPACES - hasAdminAccess result:', hasAccess);
+      
+      if (!hasAccess) {
+        console.log('🚫 ADMIN WORKSPACES ACCESS DENIED for user:', userId);
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      console.log('✅ ADMIN WORKSPACES ACCESS GRANTED for user:', userId);
+      const workspaces = await storage.getWorkspacesByOrganizationId(organizationId);
+      
+      res.json(workspaces);
+    } catch (error) {
+      console.error('Error fetching workspaces:', error);
+      res.status(500).json({ message: "Failed to fetch workspaces" });
+    }
+  });
+
+  app.get("/api/admin/invitations", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const invitations = await storage.getUserInvitationsByUserId(userId, organizationId);
+      res.json(invitations);
+    } catch (error) {
+      console.error('Get invitations error:', error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  app.get("/api/admin/pending-approvals", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const pendingApprovals = await storage.getPendingApprovalsForAdmin(userId, organizationId);
+      res.json(pendingApprovals);
+    } catch (error) {
+      console.error('Get pending approvals error:', error);
+      res.status(500).json({ message: "Failed to fetch pending approvals" });
+    }
+  });
+
+  // Get pending invitations that need role/workspace assignment
+  app.get("/api/admin/pending-invitations", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      const pendingInvitations = await storage.getPendingInvitationsWithoutRoles(organizationId);
+      res.json(pendingInvitations);
+    } catch (error) {
+      console.error('Get pending invitations error:', error);
+      res.status(500).json({ message: "Failed to fetch pending invitations" });
+    }
+  });
+
+  // Search users across organization
+  app.get("/api/admin/search-users", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const { query } = req.query;
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+
+      console.log('🔍 Search query:', query);
+      console.log('🔍 Organization ID:', organizationId);
+      
+      const searchResults = await storage.searchUsersInOrganization(organizationId, query);
+      console.log('🔍 Search results:', searchResults);
+      
+      res.json(searchResults);
+    } catch (error) {
+      console.error('Search users error:', error);
+      res.status(500).json({ message: "Failed to search users" });
+    }
+  });
+
+  // Assign role to invited user
+  app.post("/api/admin/assign-invited-user", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const { invitedUserId, workspaceId, roleId } = req.body;
+      
+      if (!invitedUserId || !workspaceId || !roleId) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+      
+      // Assign role to user
+      await storage.assignRoleToInvitedUser(invitedUserId, workspaceId, roleId, organizationId);
+      
+      res.json({ message: "Role assigned successfully" });
+    } catch (error) {
+      console.error('Assign invited user role error:', error);
+      res.status(500).json({ message: "Failed to assign role" });
+    }
+  });
+
+  app.post("/api/admin/approve-invitation/:id", requireAuth, async (req: any, res) => {
+    try {
+      const adminId = req.user.id;
+      const invitationId = parseInt(req.params.id);
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(adminId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const approvedInvitation = await storage.approveUserInvitation(invitationId, adminId);
+      if (!approvedInvitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      // Update the user's role and status
+      if (approvedInvitation.userId) {
+        await storage.updateUserRoleAndStatus(
+          approvedInvitation.userId,
+          'creator', // Default role for newly approved users
+          'active'
+        );
+        
+        // Assign user to ALL workspaces in the organization
+        await storage.assignUserToAllWorkspaces(
+          approvedInvitation.userId,
+          approvedInvitation.organizationId
+        );
+      }
+
+      res.json({
+        message: "Invitation approved successfully",
+        invitation: approvedInvitation
+      });
+    } catch (error) {
+      console.error('Approve invitation error:', error);
+      res.status(500).json({ message: "Failed to approve invitation" });
+    }
+  });
+
+  // Resend invitation with fresh expiration
+  app.post("/api/admin/resend-invitation/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const invitationId = parseInt(req.params.id);
+      const organizationId = getCurrentOrganizationId(req);
+      const { expirationMinutes = 10 } = req.body;
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      // Get existing invitation to verify it exists and belongs to this organization
+      const existingInvitation = await storage.getInvitationById(invitationId, organizationId);
+      if (!existingInvitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      // Update the invitation with fresh expiration time
+      const newExpiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
+      
+      const updatedInvitation = await storage.resendInvitation(invitationId, organizationId, newExpiresAt, expirationMinutes);
+
+      // Send new invitation email
+      await sendInvitationEmail(
+        updatedInvitation.email,
+        updatedInvitation.invitationKey,
+        expirationMinutes
+      );
+
+      res.json({ 
+        message: "Invitation resent successfully",
+        invitation: updatedInvitation
+      });
+    } catch (error) {
+      console.error('Resend invitation error:', error);
+      res.status(500).json({ message: "Failed to resend invitation" });
+    }
+  });
+
+  // Cancel invitation
+  app.post("/api/admin/cancel-invitation/:id", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const invitationId = parseInt(req.params.id);
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      // Verify invitation exists and belongs to this organization
+      const existingInvitation = await storage.getInvitationById(invitationId, organizationId);
+      if (!existingInvitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      // Cancel the invitation
+      const canceledInvitation = await storage.cancelInvitation(invitationId, organizationId, userId);
+      
+      if (!canceledInvitation) {
+        return res.status(500).json({ message: "Failed to cancel invitation" });
+      }
+
+      res.json({ 
+        message: "Invitation canceled successfully",
+        invitation: canceledInvitation
+      });
+    } catch (error) {
+      console.error('Cancel invitation error:', error);
+      res.status(500).json({ message: "Failed to cancel invitation" });
+    }
+  });
+
+  app.get("/join-invitation", async (req, res) => {
+    try {
+      const { key } = req.query;
+      
+      if (!key || typeof key !== 'string') {
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #e74c3c;">Invalid Invitation Link</h1>
+              <p>The invitation link is invalid or missing.</p>
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
+                 style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Go to PostMeAI
+              </a>
+            </body>
+          </html>
+        `);
+      }
+
+      const invitation = await storage.getUserInvitationByKey(key);
+      
+      if (!invitation) {
+        return res.status(404).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #e74c3c;">Invitation Not Found</h1>
+              <p>The invitation link is invalid or has expired.</p>
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000'}" 
+                 style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Go to PostMeAI
+              </a>
+            </body>
+          </html>
+        `);
+      }
+
+      // Check if invitation has expired
+      if (invitation.expiresAt && invitation.expiresAt < new Date()) {
+        await storage.updateUserInvitation(invitation.id, { status: 'expired' });
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #e74c3c;">Invitation Expired</h1>
+              <p>This invitation has expired. Please contact your administrator for a new invitation.</p>
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000'}" 
+                 style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Go to PostMeAI
+              </a>
+            </body>
+          </html>
+        `);
+      }
+
+      // Redirect to frontend invitation page
+      const baseUrl = process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000';
+      res.redirect(`${baseUrl}/invitation/${key}`);
+    } catch (error) {
+      console.error('Join invitation error:', error);
+      res.status(500).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1 style="color: #e74c3c;">Error</h1>
+            <p>An error occurred while processing your invitation.</p>
+            <a href="${process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000'}" 
+               style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+              Go to PostMeAI
+            </a>
+          </body>
+        </html>
+      `);
+    }
+  });
+
+  app.post("/api/invitation/set-password", async (req, res) => {
+    try {
+      const { invitationKey, firstName, lastName, password } = req.body;
+      
+      if (!invitationKey || !firstName || !lastName || !password) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters long" });
+      }
+
+      const invitation = await storage.getUserInvitationByKey(invitationKey);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invalid invitation key" });
+      }
+
+      // Check if invitation has expired
+      if (invitation.expiresAt && invitation.expiresAt < new Date()) {
+        await storage.updateUserInvitation(invitation.id, { status: 'expired' });
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+
+      // Check if user already exists
+      let user = await storage.getUserByEmail(invitation.email);
+      
+      if (user) {
+        // User exists, update their password and information
+        const hashedPassword = await bcrypt.hash(password, 12);
+        const [updatedUser] = await db
+          .update(users)
+          .set({
+            password: hashedPassword,
+            firstName: firstName,
+            lastName: lastName,
+            userRole: invitation.userRole,
+            accountStatus: 'active', // Auto-approve invited users
+            emailVerified: true,
+            onboardingCompleted: true, // Skip onboarding for invited users
+            updatedAt: new Date(),
+          })
+          .where(eq(users.email, invitation.email))
+          .returning();
+        user = updatedUser;
+      } else {
+        // Create new user account
+        user = await storage.createLocalUser({
+          email: invitation.email,
+          password,
+          firstName,
+          lastName,
+          userRole: invitation.userRole,
+          accountStatus: 'active', // Auto-approve invited users
+          emailVerified: true, // Email is pre-verified through invitation
+          onboardingCompleted: true, // Skip onboarding for invited users
+        });
+      }
+
+      // Get all workspace role assignments for this invitation
+      const invitationWorkspaceRoles = await storage.getInvitationWorkspaceRoles(invitation.id);
+      
+      if (invitationWorkspaceRoles.length > 0) {
+        // Get the organization ID from the first workspace
+        const firstWorkspaceId = invitationWorkspaceRoles[0].workspaceId;
+        const workspace = await db.select()
+          .from(workspaces)
+          .where(eq(workspaces.id, firstWorkspaceId))
+          .limit(1);
+        
+        if (workspace.length > 0) {
+          const organizationId = workspace[0].organizationId;
+          
+          // Check if user is already in the organization
+          const existingOrgMembership = await db.select()
+            .from(userOrganizations)
+            .where(and(
+              eq(userOrganizations.userId, user.id),
+              eq(userOrganizations.organizationId, organizationId)
+            ));
+            
+          if (existingOrgMembership.length === 0) {
+            // Add the user to the organization as a member
+            await db.insert(userOrganizations).values({
+              userId: user.id,
+              organizationId: organizationId,
+              role: 'member', // Default organization role for invited users
+              isActive: true,
+              joinedAt: new Date(),
+              lastActiveAt: new Date()
+            });
+          }
+          
+          // Set the user's current organization
+          await db.update(users)
+            .set({
+              currentOrganizationId: organizationId,
+              updatedAt: new Date()
+            })
+            .where(eq(users.id, user.id));
+        }
+        
+        // Process each workspace role assignment
+        for (const workspaceRole of invitationWorkspaceRoles) {
+          // Check if user is already in this workspace
+          const existingMembership = await db.select()
+            .from(userWorkspaces)
+            .where(and(
+              eq(userWorkspaces.userId, user.id),
+              eq(userWorkspaces.workspaceId, workspaceRole.workspaceId)
+            ));
+            
+          if (existingMembership.length === 0) {
+            // Use the first role from the roles array as the primary workspace role for userWorkspaces table
+            const primaryRole = workspaceRole.roles[0] || 'creator';
+            
+            // Add the user to this workspace (legacy userWorkspaces table)
+            await db.insert(userWorkspaces).values({
+              userId: user.id,
+              workspaceId: workspaceRole.workspaceId,
+              role: primaryRole,
+              isActive: true, // Auto-activate invited users
+              joinedAt: new Date()
+            });
+          }
+          
+          // Assign ALL selected roles to user_workspace_roles table
+          for (const roleName of workspaceRole.roles) {
+            // Get the role ID from workspace_roles table
+            const roleRecord = await db.select()
+              .from(workspaceRoles)
+              .where(eq(workspaceRoles.name, roleName))
+              .limit(1);
+              
+            if (roleRecord.length > 0) {
+              const roleId = roleRecord[0].id;
+              
+              // Check if this specific role assignment already exists
+              const existingRoleAssignment = await db.select()
+                .from(userWorkspaceRoles)
+                .where(and(
+                  eq(userWorkspaceRoles.userId, user.id),
+                  eq(userWorkspaceRoles.workspaceId, workspaceRole.workspaceId),
+                  eq(userWorkspaceRoles.roleId, roleId)
+                ));
+                
+              if (existingRoleAssignment.length === 0) {
+                // Assign this specific role to the user
+                await db.insert(userWorkspaceRoles).values({
+                  userId: user.id,
+                  workspaceId: workspaceRole.workspaceId,
+                  roleId: roleId,
+                  assignedAt: new Date(),
+                  assignedByUserId: null // System assignment during invitation
+                });
+                
+                console.log(`🎯 INVITATION ROLE ASSIGNMENT - User: ${user.id}, Workspace: ${workspaceRole.workspaceId}, Role: ${roleName} (ID: ${roleId})`);
+              }
+            } else {
+              console.error(`❌ INVITATION ROLE ERROR - Role '${roleName}' not found in workspace_roles table`);
+            }
+          }
+        }
+        
+        // Set the user's current workspace to the first workspace they were invited to
+        const firstWorkspace = invitationWorkspaceRoles[0];
+        await db.update(users)
+          .set({
+            currentWorkspaceId: firstWorkspace.workspaceId,
+            onboardingCompleted: true, // Skip onboarding for invited users
+            updatedAt: new Date()
+          })
+          .where(eq(users.id, user.id));
+      } else if (invitation.workspaceId) {
+        // Fallback to old single-workspace logic if no workspace roles are defined
+        // Get the organization ID from the workspace
+        const workspace = await db.select()
+          .from(workspaces)
+          .where(eq(workspaces.id, invitation.workspaceId))
+          .limit(1);
+        
+        if (workspace.length > 0) {
+          const organizationId = workspace[0].organizationId;
+          
+          // Check if user is already in the organization
+          const existingOrgMembership = await db.select()
+            .from(userOrganizations)
+            .where(and(
+              eq(userOrganizations.userId, user.id),
+              eq(userOrganizations.organizationId, organizationId)
+            ));
+            
+          if (existingOrgMembership.length === 0) {
+            // Add the user to the organization as a member
+            await db.insert(userOrganizations).values({
+              userId: user.id,
+              organizationId: organizationId,
+              role: 'member', // Default organization role for invited users
+              isActive: true,
+              joinedAt: new Date(),
+              lastActiveAt: new Date()
+            });
+          }
+          
+          // Set the user's current organization
+          await db.update(users)
+            .set({
+              currentOrganizationId: organizationId,
+              updatedAt: new Date()
+            })
+            .where(eq(users.id, user.id));
+        }
+        
+        const existingMembership = await db.select()
+          .from(userWorkspaces)
+          .where(and(
+            eq(userWorkspaces.userId, user.id),
+            eq(userWorkspaces.workspaceId, invitation.workspaceId)
+          ));
+          
+        if (existingMembership.length === 0) {
+          await db.insert(userWorkspaces).values({
+            userId: user.id,
+            workspaceId: invitation.workspaceId,
+            role: invitation.userRole || 'creator',
+            isActive: true, // Auto-activate invited users
+            joinedAt: new Date()
+          });
+        }
+        
+        await db.update(users)
+          .set({
+            currentWorkspaceId: invitation.workspaceId,
+            onboardingCompleted: true,
+            updatedAt: new Date()
+          })
+          .where(eq(users.id, user.id));
+      }
+
+      // Update invitation status
+      await storage.updateUserInvitation(invitation.id, {
+        status: 'password_set',
+        passwordSetAt: new Date(),
+        userId: user.id,
+      });
+
+      res.json({
+        message: "Password set successfully. You can now sign in immediately.",
+        userId: user.id
+      });
+    } catch (error) {
+      console.error('Set password error:', error);
+      res.status(500).json({ message: "Failed to set password" });
+    }
+  });
+
   // OAuth routes
   app.get("/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
   app.get("/auth/facebook/callback", passport.authenticate("facebook", { failureRedirect: "/login" }), (req, res) => {
@@ -524,7 +1512,7 @@ app.get(
   //app.get("/auth/linkedin", passport.authenticate("linkedin", { scope: ["r_liteprofile", "r_emailaddress"] }));
   app.get("/auth/linkedin/callback", (req, res, next) => {
     console.log("LinkedIn OAuth callback hit with query:", req.query);
-    passport.authenticate("linkedin", { failureRedirect: "/login" })(req, res, (err) => {
+    passport.authenticate("linkedin", { failureRedirect: "/login" })(req, res, async (err) => {
       if (err) {
         console.error("LinkedIn OAuth error:", err);
         return res.send(`
@@ -537,6 +1525,27 @@ app.get(
         `);
       }
       console.log("LinkedIn OAuth success, user:", req.user);
+      
+      // Handle invitation acceptance if invitation key exists
+      if (req.session.invitationKey && req.user) {
+        try {
+          const invitation = await storage.getUserInvitationByKey(req.session.invitationKey);
+          if (invitation && invitation.status === 'pending') {
+            // Update invitation with OAuth user
+            await storage.updateUserInvitation(invitation.id, {
+              status: 'password_set',
+              passwordSetAt: new Date(),
+              userId: (req.user as any).id,
+            });
+            
+            // Clear the invitation key from session
+            delete req.session.invitationKey;
+          }
+        } catch (error) {
+          console.error('Error handling OAuth invitation:', error);
+        }
+      }
+      
       res.send(`
         <script>
           window.close();
@@ -621,7 +1630,8 @@ app.get(
           binaryData: base64Data
         };
 
-        const savedImage = await storage.createImage(imageData);
+        const { organizationId, workspaceId } = getCurrentContext(req);
+        const savedImage = await storage.createImage({...imageData, organizationId, workspaceId}, organizationId, workspaceId);
         
         res.json(savedImage);
       } catch (imageError) {
@@ -638,7 +1648,8 @@ app.get(
     try {
       const postData = insertPostSchema.parse(req.body);
       const user = req.user as any;
-      const post = await storage.createPost(postData, user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const post = await storage.createPost(postData, user.id, organizationId, workspaceId);
       res.json(post);
     } catch (error) {
       res.status(400).json({ message: "Invalid post data", error });
@@ -650,13 +1661,14 @@ app.get(
     try {
       const { title, content, selectedImages, platforms, ...postData } = req.body;
       const user = req.user as any;
+      const { organizationId, workspaceId } = getCurrentContext(req);
       
       // Create the post
       const post = await storage.createPost({
         ...postData,
         subject: `${title}: ${content.substring(0, 100)}...`,
         executionMode: "manual"
-      }, user.id);
+      }, user.id, organizationId, workspaceId);
 
       // Create generated content with manual data and include selected images
       const generatedContent = await storage.createGeneratedContent({
@@ -672,7 +1684,7 @@ app.get(
           };
           return acc;
         }, {})
-      });
+      }, user.id, organizationId, workspaceId);
 
       // Include selected images in the response for platform display
       const responseContent = {
@@ -687,10 +1699,12 @@ app.get(
   });
 
   // Generate content for a post
-  app.post("/api/posts/:id/generate", async (req, res) => {
+  app.post("/api/posts/:id/generate", requireAuth, async (req, res) => {
     try {
       const postId = parseInt(req.params.id);
-      const post = await storage.getPost(postId);
+      const user = req.user as any;
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const post = await storage.getPost(postId, user.id, organizationId, workspaceId);
       
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
@@ -717,7 +1731,7 @@ app.get(
         body,
         imageUrl: post.generateImage ? imageUrl : null,
         platformContent
-      });
+      }, user.id, organizationId, workspaceId);
 
       res.json(generatedContent);
     } catch (error) {
@@ -726,10 +1740,12 @@ app.get(
   });
 
   // Get generated content for a post
-  app.get("/api/posts/:id/content", async (req, res) => {
+  app.get("/api/posts/:id/content", requireAuth, async (req, res) => {
     try {
       const postId = parseInt(req.params.id);
-      const content = await storage.getGeneratedContentByPostId(postId);
+      const user = req.user as any;
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const content = await storage.getGeneratedContentByPostId(postId, user.id, organizationId, workspaceId);
       
       if (!content) {
         return res.status(404).json({ message: "Generated content not found" });
@@ -742,17 +1758,19 @@ app.get(
   });
 
   // Publish post to platforms
-  app.post("/api/posts/:id/publish", async (req, res) => {
+  app.post("/api/posts/:id/publish", requireAuth, async (req, res) => {
     try {
       const postId = parseInt(req.params.id);
       const { platforms } = req.body;
+      const user = req.user as any;
+      const { organizationId, workspaceId } = getCurrentContext(req);
 
       if (!Array.isArray(platforms)) {
         return res.status(400).json({ message: "Platforms must be an array" });
       }
 
       // Get the post to check if it's a manual post
-      const post = await storage.getPost(postId);
+      const post = await storage.getPost(postId, user.id, organizationId, workspaceId);
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
@@ -760,10 +1778,10 @@ app.get(
       const publishedPost = await storage.createPublishedPost({
         postId,
         platforms
-      });
+      }, user.id, organizationId, workspaceId);
 
       // Update post status
-      await storage.updatePost(postId, { status: "published" });
+      await storage.updatePost(postId, { status: "published" }, user.id, organizationId, workspaceId);
 
       // Include isManualPost flag in response
       const responseData = {
@@ -781,10 +1799,44 @@ app.get(
   app.post("/api/templates", requireAuth, async (req, res) => {
     try {
       const templateData = insertTemplateSchema.parse(req.body);
-      const template = await storage.createTemplate(templateData);
+      const user = req.user as any;
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const template = await storage.createTemplate(templateData, user.id, organizationId, workspaceId);
       res.json(template);
     } catch (error) {
       res.status(400).json({ message: "Invalid template data", error });
+    }
+  });
+
+  // Debug route to test admin access logic
+  app.post("/api/debug/test-admin-access", async (req, res) => {
+    try {
+      const { userId, organizationId } = req.body;
+      
+      console.log('🔍 DEBUG TESTING - UserId:', userId, 'OrgId:', organizationId);
+      
+      // Get organization role
+      const orgRole = await storage.getUserOrganization(userId, organizationId);
+      console.log('🔍 DEBUG TESTING - OrgRole:', orgRole);
+      
+      // Get workspace roles
+      const workspaceRoles = await storage.getUserWorkspaceRoles(userId, organizationId);
+      console.log('🔍 DEBUG TESTING - WorkspaceRoles:', JSON.stringify(workspaceRoles, null, 2));
+      
+      // Test hasAdminAccess function
+      const hasAccess = await hasAdminAccess(userId, organizationId);
+      console.log('🔍 DEBUG TESTING - hasAdminAccess result:', hasAccess);
+      
+      res.json({
+        userId,
+        organizationId,
+        orgRole,
+        workspaceRoles,
+        hasAccess
+      });
+    } catch (error) {
+      console.error('Debug test error:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -792,7 +1844,8 @@ app.get(
   app.get("/api/templates", requireAuth, async (req, res) => {
     try {
       const user = req.user as any;
-      const templates = await storage.getTemplatesByUserId(user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const templates = await storage.getTemplatesByUserId(user.id, organizationId, workspaceId);
       res.json(templates);
     } catch (error) {
       res.status(500).json({ message: "Failed to get templates", error });
@@ -937,6 +1990,65 @@ app.get(
     }
   });
 
+  // Dashboard Analytics Routes
+  app.get('/api/dashboard/analytics', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Get subscription info
+      const subscription = {
+        plan: user.subscriptionPlan || 'Free',
+        status: user.subscriptionStatus || 'free',
+        nextPaymentDate: user.subscriptionPlan !== 'Free' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null
+      };
+
+      // Get pending posts count (mock for now)
+      const pendingPosts = Math.floor(Math.random() * 5);
+
+      // Get weekly posts data (mock for now)
+      const weeklyPosts = {
+        total: Math.floor(Math.random() * 20) + 5,
+        aiPosts: Math.floor(Math.random() * 15) + 2,
+        manualPosts: Math.floor(Math.random() * 10) + 1
+      };
+
+      // Get schedulers status (mock for now)
+      const schedulers = {
+        active: Math.floor(Math.random() * 8) + 2,
+        inactive: Math.floor(Math.random() * 3)
+      };
+
+      // Get credits balance
+      const credits = {
+        balance: user.credits || 0
+      };
+
+      // Get performance metrics (mock data for now)
+      const performance = {
+        engagementRate: Math.floor(Math.random() * 15) + 5, // 5-20%
+        totalReach: Math.floor(Math.random() * 50000) + 10000,
+        totalClicks: Math.floor(Math.random() * 5000) + 1000
+      };
+
+      res.json({
+        subscription,
+        pendingPosts,
+        weeklyPosts,
+        schedulers,
+        credits,
+        performance
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard analytics:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard analytics' });
+    }
+  });
+
   // Mock REST API for creating manual posts
   app.post("/api/posts/manual", requireAuth, async (req, res) => {
     try {
@@ -1016,6 +2128,7 @@ app.get(
     try {
       const { name } = req.body;
       const userId = req.user.id;
+      const workspaceId = getCurrentWorkspaceId(req);
 
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: "Folder name is required" });
@@ -1024,7 +2137,7 @@ app.get(
       const folder = await storage.createFolder({
         userId,
         name: name.trim(),
-      });
+      }, workspaceId);
 
       res.status(201).json(folder);
     } catch (error: any) {
@@ -1036,7 +2149,9 @@ app.get(
   app.get('/api/folders', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const folders = await storage.getFoldersByUserId(userId);
+      const organizationId = getCurrentOrganizationId(req);
+      const workspaceId = getCurrentWorkspaceId(req);
+      const folders = await storage.getFoldersByUserId(userId, organizationId, workspaceId);
       res.json(folders);
     } catch (error: any) {
       console.error("Error fetching folders:", error);
@@ -1048,8 +2163,9 @@ app.get(
     try {
       const folderId = parseInt(req.params.id);
       const userId = req.user.id;
+      const workspaceId = getCurrentWorkspaceId(req);
 
-      const success = await storage.deleteFolder(folderId, userId);
+      const success = await storage.deleteFolder(folderId, userId, workspaceId);
       if (!success) {
         return res.status(404).json({ message: "Folder not found" });
       }
@@ -1065,13 +2181,16 @@ app.get(
   app.get('/api/images', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      const workspaceId = getCurrentWorkspaceId(req);
       const { folder } = req.query;
       
       let images;
       if (folder && folder !== 'all') {
-        images = await storage.getImagesByFolder(userId, folder as string);
+        const folderId = parseInt(folder as string);
+        images = await storage.getImagesByFolder(userId, folderId, organizationId, workspaceId);
       } else {
-        images = await storage.getImagesByUserId(userId);
+        images = await storage.getImagesByUserId(userId, organizationId, workspaceId);
       }
       
       res.json(images);
@@ -1114,7 +2233,8 @@ app.get(
           binaryData: base64Data
         };
         
-        const image = await storage.createImage(imageData);
+        const { organizationId, workspaceId } = getCurrentContext(req);
+        const image = await storage.createImage({ ...imageData, organizationId, workspaceId }, organizationId, workspaceId);
         res.json(image);
       });
     } catch (error: any) {
@@ -1125,6 +2245,9 @@ app.get(
   app.post('/api/images', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      
+      console.log('Image upload request - Content-Type:', req.headers['content-type']);
+      console.log('Image upload request - req.is multipart:', req.is('multipart/form-data'));
       
       // Handle both JSON and FormData uploads
       if (req.is('multipart/form-data')) {
@@ -1143,32 +2266,38 @@ app.get(
           
           const file = req.file;
           const folder = req.body.folder || null;
+          const { organizationId, workspaceId } = getCurrentContext(req);
           
           // Convert buffer to base64
           const base64Data = file.buffer.toString('base64');
           
           const imageData = {
             userId,
+            organizationId,
+            workspaceId,
             filename: `upload-${Date.now()}-${file.originalname}`,
             originalName: file.originalname,
-            mimeType: file.mimetype,
+            fileType: file.mimetype,
             fileSize: file.size,
             folder: folder === 'uncategorized' ? null : folder,
-            binaryData: base64Data
+            data: base64Data
           };
           
-          const image = await storage.createImage(imageData);
+          const image = await storage.createImage(imageData, organizationId, workspaceId);
           res.json(image);
         });
       } else {
         // For direct JSON uploads (like AI-generated images)
+        const { organizationId, workspaceId } = getCurrentContext(req);
         const imageData = insertImageSchema.parse({
           ...req.body,
           userId,
+          organizationId,
+          workspaceId,
           originalName: req.body.originalName || req.body.filename || 'ai-generated-image.png'
         });
         
-        const image = await storage.createImage(imageData);
+        const image = await storage.createImage(imageData, organizationId, workspaceId);
         res.json(image);
       }
     } catch (error: any) {
@@ -1180,9 +2309,10 @@ app.get(
   app.get('/api/images/:id', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const { organizationId, workspaceId } = getCurrentContext(req);
       const imageId = parseInt(req.params.id);
       
-      const image = await storage.getImageById(imageId, userId);
+      const image = await storage.getImageById(imageId, userId, organizationId, workspaceId);
       if (!image) {
         return res.status(404).json({ message: 'Image not found' });
       }
@@ -1197,15 +2327,16 @@ app.get(
   app.put('/api/images/:id', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const { organizationId, workspaceId } = getCurrentContext(req);
       const imageId = parseInt(req.params.id);
       
       // First verify the image belongs to the user
-      const existingImage = await storage.getImageById(imageId, userId);
+      const existingImage = await storage.getImageById(imageId, userId, organizationId, workspaceId);
       if (!existingImage) {
         return res.status(404).json({ message: 'Image not found' });
       }
       
-      const updatedImage = await storage.updateImage(imageId, req.body);
+      const updatedImage = await storage.updateImage(imageId, req.body, organizationId, workspaceId);
       res.json(updatedImage);
     } catch (error: any) {
       console.error('Error updating image:', error);
@@ -1216,9 +2347,10 @@ app.get(
   app.delete('/api/images/:id', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const { organizationId, workspaceId } = getCurrentContext(req);
       const imageId = parseInt(req.params.id);
       
-      const deleted = await storage.deleteImage(imageId, userId);
+      const deleted = await storage.deleteImage(imageId, userId, organizationId, workspaceId);
       if (!deleted) {
         return res.status(404).json({ message: 'Image not found' });
       }
@@ -1249,8 +2381,11 @@ app.get(
       const mockImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
       
       const filename = `ai-generated-${Date.now()}.png`;
+      const { organizationId, workspaceId } = getCurrentContext(req);
       const imageData: InsertImage = {
         userId,
+        organizationId,
+        workspaceId,
         filename,
         originalName: filename,
         mimeType: 'image/png',
@@ -1259,7 +2394,7 @@ app.get(
         binaryData: mockImageBase64
       };
 
-      const image = await storage.createImage(imageData);
+      const image = await storage.createImage(imageData, organizationId, workspaceId);
       res.json(image);
 
     } catch (error: any) {
@@ -1274,7 +2409,8 @@ app.get(
   app.get('/api/social-media-configs', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const configs = await storage.getSocialMediaConfigs(userId);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const configs = await storage.getSocialMediaConfigs(userId, organizationId, workspaceId);
       res.json(configs);
     } catch (error: any) {
       console.error("Error fetching social media configs:", error);
@@ -1285,21 +2421,24 @@ app.get(
   app.post('/api/social-media-configs', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { platformId, isEnabled, apiKey } = req.body;
+      const { platform, isActive, apiKey } = req.body;
 
-      if (!platformId) {
-        return res.status(400).json({ message: "Platform ID is required" });
+      if (!platform) {
+        return res.status(400).json({ message: "Platform is required" });
       }
 
+      const { organizationId, workspaceId } = getCurrentContext(req);
       const config = await storage.upsertSocialMediaConfig({
         userId,
-        platformId,
-        isEnabled: isEnabled !== undefined ? isEnabled : true,
+        platform,
+        isActive: isActive !== undefined ? isActive : true,
         apiKey: apiKey || null,
         testStatus: 'idle',
-        testError: null,
+        testMessage: null,
         lastTestedAt: null,
-      });
+        organizationId,
+        workspaceId
+      }, organizationId, workspaceId);
 
       res.json(config);
     } catch (error: any) {
@@ -1496,6 +2635,7 @@ app.get(
   app.get('/api/search', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const workspaceId = getCurrentWorkspaceId(req);
       const query = req.query.q as string;
 
       if (!query || query.length < 3) {
@@ -1506,7 +2646,7 @@ app.get(
       const results: any[] = [];
 
       // Search templates
-      const templates = await storage.getTemplatesByUserId(userId);
+      const templates = await storage.getTemplatesByUserId(userId, workspaceId);
       const matchingTemplates = templates.filter((template: any) => 
         template.name.toLowerCase().includes(searchTerm)
       );
@@ -1518,7 +2658,7 @@ app.get(
       })));
 
       // Search images
-      const images = await storage.getImagesByUserId(userId);
+      const images = await storage.getImagesByUserId(userId, workspaceId);
       const matchingImages = images.filter((image: any) => 
         image.filename.toLowerCase().includes(searchTerm) || 
         image.folder?.toLowerCase().includes(searchTerm)
@@ -1531,7 +2671,7 @@ app.get(
       })));
 
       // Search social media configurations
-      const socialConfigs = await storage.getSocialMediaConfigs(userId);
+      const socialConfigs = await storage.getSocialMediaConfigs(userId, workspaceId);
       const matchingSocial = socialConfigs.filter((config: any) => 
         config.platformId.toLowerCase().includes(searchTerm)
       );
@@ -1554,7 +2694,7 @@ app.get(
   app.get('/auth/facebook/api-key', (req, res) => {
     const facebookAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
       `client_id=${process.env.FACEBOOK_APP_ID}&` +
-      `redirect_uri=${encodeURIComponent(process.env.POSTMEAI_FE_URL + '/auth/facebook/api-key/callback')}&` +
+      `redirect_uri=${encodeURIComponent(process.env.NODE_ENV === 'production' ? 'https://postmeai.com/auth/facebook/api-key/callback' : 'http://localhost:5000/auth/facebook/api-key/callback')}&` +
       `scope=pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish&` +
       `response_type=code&` +
       `state=${req.user?.id || 'anonymous'}`;
@@ -1756,18 +2896,276 @@ app.get(
       res.status(404).json({ message: 'No LinkedIn API key found' });
     }
   });
+
+  // Organization API routes
+  app.get('/api/organization/current', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.currentOrganizationId) {
+        return res.status(400).json({ message: 'User has no organization context' });
+      }
+      
+      const organization = await storage.getOrganization(user.currentOrganizationId);
+      if (!organization) {
+        return res.status(404).json({ message: 'Organization not found' });
+      }
+      
+      // Get user's role in the organization
+      const userOrganizations = await storage.getUserOrganizations(userId);
+      const userOrgRole = userOrganizations.find(uo => uo.organizationId === user.currentOrganizationId);
+      const currentUserRole = userOrgRole ? userOrgRole.role : 'member';
+      
+      res.json({
+        ...organization,
+        currentUserRole
+      });
+    } catch (error: any) {
+      console.error('Error fetching organization info:', error);
+      res.status(500).json({ message: 'Failed to fetch organization information' });
+    }
+  });
+
+  app.get('/api/organizations', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get all organizations where the user is a member
+      const userOrganizations = await storage.getUserOrganizations(userId);
+      
+      const organizations = await Promise.all(
+        userOrganizations.map(async (userOrg) => {
+          const org = await storage.getOrganization(userOrg.organizationId);
+          if (!org) return null;
+          
+          const memberCount = await storage.getOrganizationMemberCount(userOrg.organizationId);
+          
+          return {
+            ...org,
+            currentUserRole: userOrg.role,
+            memberCount: memberCount || 0,
+            isActive: userOrg.isActive
+          };
+        })
+      );
+      
+      res.json(organizations.filter(Boolean));
+    } catch (error: any) {
+      console.error('Error fetching organizations:', error);
+      res.status(500).json({ message: 'Failed to fetch organizations' });
+    }
+  });
+
+  app.post('/api/organization/switch', requireAuth, async (req: any, res) => {
+    try {
+
+      const userId = req.user.id;
+      const { organizationId } = req.body;
+      
+      if (!organizationId) {
+        return res.status(400).json({ message: 'Organization ID is required' });
+      }
+      
+      // Verify user has access to this organization
+      const userOrganizations = await storage.getUserOrganizations(userId);
+      const hasAccess = userOrganizations.some(uo => uo.organizationId === organizationId && uo.isActive);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Access denied to this organization' });
+      }
+      
+      // Update user's current organization
+      await storage.updateUser(userId, { currentOrganizationId: organizationId });
+      
+      // Find first workspace in the organization and set as current
+      const workspaces = await storage.getWorkspacesByOrganizationId(organizationId);
+      if (workspaces.length > 0) {
+        await storage.updateUser(userId, { currentWorkspaceId: workspaces[0].id });
+      }
+      
+      res.json({ success: true, message: 'Organization switched successfully' });
+    } catch (error: any) {
+      console.error('Error switching organization:', error);
+      res.status(500).json({ message: 'Failed to switch organization' });
+    }
+  });
+
+  // Workspace API routes
+  app.get('/api/workspace/current', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get user's current workspace from database (fresh data)
+      const user = await storage.getUser(userId);
+      if (!user || !user.currentWorkspaceId) {
+        return res.status(400).json({ message: 'No current workspace set' });
+      }
+      
+      const workspaceId = user.currentWorkspaceId;
+      
+      // Get workspace info
+      const workspace = await storage.getWorkspace(workspaceId);
+      if (!workspace) {
+        return res.status(404).json({ message: 'Workspace not found' });
+      }
+      
+      // Get workspace members
+      const members = await storage.getWorkspaceMembers(workspaceId);
+      
+      // Get current user's role in this workspace
+      const currentUserMembership = members.find(member => member.userId === userId);
+      const currentUserRole = currentUserMembership ? currentUserMembership.role : 'member';
+      
+      // Format response
+      const workspaceInfo = {
+        id: workspace.id,
+        name: workspace.name,
+        description: workspace.description,
+        createdAt: workspace.createdAt,
+        updatedAt: workspace.updatedAt,
+        currentUserRole: currentUserRole, // Add current user's workspace role
+        members: members.map(member => ({
+          id: member.userId,
+          email: member.email || 'Unknown',
+          role: member.role,
+          joinedAt: member.joinedAt
+        }))
+      };
+      
+      res.json(workspaceInfo);
+    } catch (error: any) {
+      console.error('Error fetching workspace info:', error);
+      res.status(500).json({ message: 'Failed to fetch workspace information' });
+    }
+  });
+
+  // Get all workspaces for current user
+  app.get('/api/workspaces', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get user's organization and role
+      const userOrganizations = await storage.getUserOrganizations(userId);
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.currentOrganizationId) {
+        return res.status(400).json({ message: 'User has no organization context' });
+      }
+      
+      // Find the user's role in the current organization
+      const userOrgRole = userOrganizations.find(uo => uo.organizationId === user.currentOrganizationId);
+      
+      console.log('🔍 DEBUG - User:', userId, 'OrgRole:', userOrgRole, 'CurrentOrgId:', user.currentOrganizationId);
+      
+      let workspaces;
+      
+      if (userOrgRole && userOrgRole.role === 'owner') {
+        // 🔐 Organization Owner: Show ALL workspaces in the organization
+        console.log('🔍 Owner detected - fetching all workspaces for organization:', user.currentOrganizationId);
+        const allWorkspaces = await storage.getWorkspacesByOrganizationId(user.currentOrganizationId);
+        console.log('🔍 Found workspaces:', allWorkspaces.length, allWorkspaces.map(w => ({ id: w.id, name: w.name })));
+        
+        // Format response with workspace details and user's role (or 'owner' if not a member)
+        workspaces = await Promise.all(allWorkspaces.map(async (workspace) => {
+          const members = await storage.getWorkspaceMembers(workspace.id);
+          
+          // Check if user is a member of this workspace
+          const userWorkspace = await storage.getUserWorkspaceByIds(userId, workspace.id);
+          
+          const role = userWorkspace ? userWorkspace.role : 'owner';
+          
+          const workspaceResponse = {
+            id: workspace.id,
+            name: workspace.name,
+            description: workspace.description,
+            uniqueId: workspace.uniqueId,
+            currentUserRole: role, // Show 'owner' if not a member but owns org
+            memberCount: members.length,
+            createdAt: workspace.createdAt,
+            isActive: workspace.id === user.currentWorkspaceId
+          };
+
+          return workspaceResponse;
+        }));
+      } else {
+        // 🔐 Non-Owner: Show only workspaces where user has explicit roles in the organization
+        console.log('🔍 Non-owner detected - fetching user workspace roles for user:', userId);
+        const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, user.currentOrganizationId);
+        console.log('🔍 User workspace roles found:', userWorkspaceRoles);
+        
+        // Format response with workspace details and user's role
+        workspaces = await Promise.all(userWorkspaceRoles.map(async (roleAssignment) => {
+          const workspace = await storage.getWorkspace(roleAssignment.workspaceId);
+          const members = await storage.getWorkspaceMembers(roleAssignment.workspaceId);
+
+          const workspaceResponse = {
+            id: workspace.id,
+            name: workspace.name,
+            description: workspace.description,
+            uniqueId: workspace.uniqueId,
+            currentUserRole: roleAssignment.role,
+            //currentUserRole: roleAssignment.roleId,
+            //currentUserRole: "administrator",
+            memberCount: members.length,
+            createdAt: workspace.createdAt,
+            isActive: workspace.id === user.currentWorkspaceId
+          };
+          
+          return workspaceResponse;
+        }));
+        console.log('🔍 Final workspaces for non-owner:', workspaces.map(w => ({ id: w.id, name: w.name, role: w.currentUserRole })));
+      }
+      
+      res.json(workspaces);
+    } catch (error: any) {
+      console.error('Error fetching user workspaces:', error);
+      res.status(500).json({ message: 'Failed to fetch workspaces' });
+    }
+  });
+
+
+  // Switch workspace
+  app.post('/api/workspace/switch', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { workspaceId } = req.body;
+      
+      if (!workspaceId) {
+        return res.status(400).json({ message: 'Workspace ID is required' });
+      }
+      
+      // Verify user has access to this workspace
+      const userWorkspaces = await storage.getUserWorkspaces(userId);
+      const hasAccess = userWorkspaces.some(uw => uw.workspaceId === workspaceId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Access denied to this workspace' });
+      }
+      
+      // Update user's current workspace
+      await storage.updateUserCurrentWorkspace(userId, workspaceId);
+      
+      res.json({ success: true, message: 'Workspace switched successfully' });
+    } catch (error: any) {
+      console.error('Error switching workspace:', error);
+      res.status(500).json({ message: 'Failed to switch workspace' });
+    }
+  });
+
   // User data deletion routes
   app.get('/api/user/data-summary', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
       
       // Get counts of all user data
-      const posts = await storage.getPostsByUserId(userId);
-      const images = await storage.getImagesByUserId(userId);
-      const schedules = await storage.getPostSchedulesByUserId(userId);
-      const socialConfigs = await storage.getSocialMediaConfigs(userId);
-      const transactions = await storage.getPaymentTransactionsByUserId(userId);
-      const templates = await storage.getTemplatesByUserId(userId);
+      const workspaceId = getCurrentWorkspaceId(req);
+      const posts = await storage.getPostsByUserId(userId, workspaceId);
+      const images = await storage.getImagesByUserId(userId, workspaceId);
+      const schedules = await storage.getPostSchedulesByUserId(userId, workspaceId);
+      const socialConfigs = await storage.getSocialMediaConfigs(userId, workspaceId);
+      const transactions = await storage.getPaymentTransactionsByUserId(userId, workspaceId);
+      const templates = await storage.getTemplatesByUserId(userId, workspaceId);
       
       const dataSummary = {
         posts: posts.length,
@@ -1796,53 +3194,61 @@ app.get(
       
       // Delete all user data in the correct order (respecting foreign key constraints)
       
-      // 1. Delete schedule executions
-      const schedules = await storage.getPostSchedulesByUserId(userId);
-      for (const schedule of schedules) {
-        await storage.deleteScheduleExecutions(schedule.id);
-      }
+      // Delete data from ALL workspaces for this user (account deletion should be global)
+      // We need to get all workspaces this user belongs to and delete data from each
+      const userWorkspaces = await storage.getUserWorkspaces(userId);
       
-      // 2. Delete post schedules
-      for (const schedule of schedules) {
-        await storage.deletePostSchedule(schedule.id, userId);
+      for (const workspace of userWorkspaces) {
+        const workspaceId = workspace.workspaceId;
+        
+        // 1. Delete schedule executions
+        const schedules = await storage.getPostSchedulesByUserId(userId, workspaceId);
+        for (const schedule of schedules) {
+          await storage.deleteScheduleExecutions(schedule.id);
+        }
+        
+        // 2. Delete post schedules
+        for (const schedule of schedules) {
+          await storage.deletePostSchedule(schedule.id, userId, workspaceId);
+        }
+        
+        // 3. Delete published posts
+        const posts = await storage.getPostsByUserId(userId, workspaceId);
+        for (const post of posts) {
+          await storage.deletePublishedPostsByPostId(post.id, workspaceId);
+        }
+        
+        // 4. Delete generated content
+        for (const post of posts) {
+          await storage.deleteGeneratedContentByPostId(post.id, workspaceId);
+        }
+        
+        // 5. Delete templates
+        const templates = await storage.getTemplatesByUserId(userId, workspaceId);
+        for (const template of templates) {
+          await storage.deleteTemplate(template.id, userId, workspaceId);
+        }
+        
+        // 6. Delete posts
+        for (const post of posts) {
+          await storage.deletePost(post.id, userId, workspaceId);
+        }
+        
+        // 7. Delete images
+        const images = await storage.getImagesByUserId(userId, workspaceId);
+        for (const image of images) {
+          await storage.deleteImage(image.id, userId, workspaceId);
+        }
+        
+        // 8. Delete folders
+        const folders = await storage.getFoldersByUserId(userId, workspaceId);
+        for (const folder of folders) {
+          await storage.deleteFolder(folder.id, userId, workspaceId);
+        }
+        
+        // 9. Delete social media configs
+        await storage.deleteSocialMediaConfigs(userId, workspaceId);
       }
-      
-      // 3. Delete published posts
-      const posts = await storage.getPostsByUserId(userId);
-      for (const post of posts) {
-        await storage.deletePublishedPostsByPostId(post.id);
-      }
-      
-      // 4. Delete generated content
-      for (const post of posts) {
-        await storage.deleteGeneratedContentByPostId(post.id);
-      }
-      
-      // 5. Delete templates
-      const templates = await storage.getTemplatesByUserId(userId);
-      for (const template of templates) {
-        await storage.deleteTemplate(template.id, userId);
-      }
-      
-      // 6. Delete posts
-      for (const post of posts) {
-        await storage.deletePost(post.id, userId);
-      }
-      
-      // 7. Delete images
-      const images = await storage.getImagesByUserId(userId);
-      for (const image of images) {
-        await storage.deleteImage(image.id, userId);
-      }
-      
-      // 8. Delete folders
-      const folders = await storage.getFoldersByUserId(userId);
-      for (const folder of folders) {
-        await storage.deleteFolder(folder.id, userId);
-      }
-      
-      // 9. Delete social media configs
-      await storage.deleteSocialMediaConfigs(userId);
       
       // 10. Delete payment transactions
       await storage.deletePaymentTransactions(userId);
@@ -1918,7 +3324,8 @@ app.get(
       console.log(`Testing ${platformId} connection for user ${userId}`);
       
       if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
-        await storage.updateSocialMediaConfigTestStatus(userId, platformId, 'failed', 'API key is required for testing');
+        const workspaceId = getCurrentWorkspaceId(req);
+        await storage.updateSocialMediaConfigTestStatus(userId, platformId, 'failed', workspaceId, 'API key is required for testing');
         return res.status(400).json({ 
           success: false, 
           error: 'API key is required for testing',
@@ -1980,6 +3387,7 @@ app.get(
         }
       }
       // Update test status in database and save API key
+      const workspaceId = getCurrentWorkspaceId(req);
       if (testResult.success) {
         await storage.upsertSocialMediaConfig({
           userId,
@@ -1989,7 +3397,7 @@ app.get(
           testStatus: 'connected',
           testError: null,
           lastTestedAt: new Date(),
-        });
+        }, workspaceId);
         
         res.json({ 
           success: true, 
@@ -1997,7 +3405,7 @@ app.get(
           userInfo: testResult.userInfo || null
         });
       } else {
-        await storage.updateSocialMediaConfigTestStatus(userId, platformId, 'failed', testResult.error);
+        await storage.updateSocialMediaConfigTestStatus(userId, platformId, 'failed', workspaceId, testResult.error);
         res.status(400).json({ 
           success: false, 
           message: testResult.error || `${platformId} connection failed` 
@@ -2005,7 +3413,8 @@ app.get(
       }
     } catch (error: any) {
       console.error(`Error testing ${req.params.platformId} connection:`, error);
-      await storage.updateSocialMediaConfigTestStatus(req.user.id, req.params.platformId, 'failed', error.message);
+      const workspaceId = getCurrentWorkspaceId(req);
+      await storage.updateSocialMediaConfigTestStatus(req.user.id, req.params.platformId, 'failed', workspaceId, error.message);
       res.status(500).json({ message: "Connection test failed" });
     }
   });
@@ -2066,13 +3475,14 @@ app.get(
   app.get('/api/templates', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const templates = await storage.getTemplatesByUserId(userId);
+      const workspaceId = getCurrentWorkspaceId(req);
+      const templates = await storage.getTemplatesByUserId(userId, workspaceId);
       
       // Enhance templates with post data and objective
       const enhancedTemplates = await Promise.all(
         templates.map(async (template) => {
-          const post = await storage.getPost(template.postId);
-          const generatedContent = await storage.getGeneratedContentByPostId(template.postId);
+          const post = await storage.getPost(template.postId, userId, workspaceId);
+          const generatedContent = await storage.getGeneratedContentByPostId(template.postId, userId, workspaceId);
           
           return {
             ...template,
@@ -2091,16 +3501,17 @@ app.get(
   app.get('/api/templates/:id', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const workspaceId = getCurrentWorkspaceId(req);
       const templateId = parseInt(req.params.id);
       
-      const template = await storage.getTemplateById(templateId, userId);
+      const template = await storage.getTemplateById(templateId, userId, workspaceId);
       if (!template) {
         return res.status(404).json({ message: "Template not found" });
       }
       
       // Get associated post and content data
-      const post = await storage.getPost(template.postId);
-      const generatedContent = await storage.getGeneratedContentByPostId(template.postId);
+      const post = await storage.getPost(template.postId, userId, workspaceId);
+      const generatedContent = await storage.getGeneratedContentByPostId(template.postId, userId, workspaceId);
       
       res.json({
         template,
@@ -2209,11 +3620,12 @@ app.get(
   // Post Schedule Routes
   app.get("/api/post-schedules", requireAuth, async (req: any, res) => {
     try {
-      const schedules = await storage.getPostSchedulesByUserId(req.user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const schedules = await storage.getPostSchedulesByUserId(req.user.id, workspaceId);
       
       // Add execution statistics to each schedule
       const schedulesWithStats = await Promise.all(schedules.map(async (schedule: any) => {
-        const executions = await storage.getScheduleExecutionsByScheduleId(schedule.id, req.user.id);
+        const executions = await storage.getScheduleExecutionsByScheduleId(schedule.id, req.user.id, organizationId, workspaceId);
         const totalExecutions = executions.length;
         const successfulExecutions = executions.filter((ex: any) => ex.status === 'success').length;
         
@@ -2226,12 +3638,17 @@ app.get(
       
       res.json(schedulesWithStats);
     } catch (error) {
+      console.error("Error fetching post schedules:", error);
       res.status(500).json({ error: "Failed to fetch post schedules" });
     }
   });
 
   app.post("/api/post-schedules", requireAuth, async (req: any, res) => {
     try {
+      console.log("=== POST SCHEDULE DEBUG ===");
+      console.log("Raw request body:", JSON.stringify(req.body, null, 2));
+      console.log("User ID:", req.user.id);
+
       const scheduleData = {
         ...req.body,
         userId: req.user.id,
@@ -2240,21 +3657,30 @@ app.get(
         updatedAt: new Date(),
       };
 
-      const schedule = await storage.createPostSchedule(scheduleData);
+      console.log("Processed schedule data:", JSON.stringify(scheduleData, null, 2));
+
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      console.log("Context - organizationId:", organizationId, "workspaceId:", workspaceId);
+      
+      const schedule = await storage.createPostSchedule(scheduleData, workspaceId);
       res.json(schedule);
     } catch (error) {
+      console.error("Error creating post schedule:", error);
+      console.error("Error details:", error);
       res.status(500).json({ error: "Failed to create post schedule" });
     }
   });
 
   app.get("/api/post-schedules/:id", requireAuth, async (req: any, res) => {
     try {
-      const schedule = await storage.getPostScheduleById(parseInt(req.params.id), req.user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const schedule = await storage.getPostScheduleById(parseInt(req.params.id), req.user.id, organizationId, workspaceId);
       if (!schedule) {
         return res.status(404).json({ error: "Schedule not found" });
       }
       res.json(schedule);
     } catch (error) {
+      console.error("Error fetching post schedule:", error);
       res.status(500).json({ error: "Failed to fetch post schedule" });
     }
   });
@@ -2266,24 +3692,28 @@ app.get(
         updatedAt: new Date(),
       };
       
-      const schedule = await storage.updatePostSchedule(parseInt(req.params.id), updates, req.user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const schedule = await storage.updatePostSchedule(parseInt(req.params.id), updates, req.user.id, organizationId, workspaceId);
       if (!schedule) {
         return res.status(404).json({ error: "Schedule not found" });
       }
       res.json(schedule);
     } catch (error) {
+      console.error("Error updating post schedule:", error);
       res.status(500).json({ error: "Failed to update post schedule" });
     }
   });
 
   app.delete("/api/post-schedules/:id", requireAuth, async (req: any, res) => {
     try {
-      const success = await storage.deletePostSchedule(parseInt(req.params.id), req.user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const success = await storage.deletePostSchedule(parseInt(req.params.id), req.user.id, organizationId, workspaceId);
       if (!success) {
         return res.status(404).json({ error: "Schedule not found" });
       }
       res.json({ success: true });
     } catch (error) {
+      console.error("Error deleting post schedule:", error);
       res.status(500).json({ error: "Failed to delete post schedule" });
     }
   });
@@ -2295,7 +3725,8 @@ app.get(
       const { isActive } = req.body;
       
       const updates = { isActive, updatedAt: new Date() };
-      const schedule = await storage.updatePostSchedule(scheduleId, updates, req.user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const schedule = await storage.updatePostSchedule(scheduleId, updates, req.user.id, organizationId, workspaceId);
       
       if (!schedule) {
         return res.status(404).json({ error: "Schedule not found" });
@@ -2307,6 +3738,7 @@ app.get(
         schedule
       });
     } catch (error) {
+      console.error("Error toggling schedule status:", error);
       res.status(500).json({ error: "Failed to toggle schedule status" });
     }
   });
@@ -2318,7 +3750,8 @@ app.get(
       const startTime = Date.now();
       
       // Get the schedule to verify ownership
-      const schedule = await storage.getPostScheduleById(scheduleId, req.user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const schedule = await storage.getPostScheduleById(scheduleId, req.user.id, organizationId, workspaceId);
       if (!schedule) {
         return res.status(404).json({ error: "Schedule not found" });
       }
@@ -2337,42 +3770,48 @@ app.get(
         lastExecutedAt: new Date(), 
         updatedAt: new Date() 
       };
-      await storage.updatePostSchedule(scheduleId, updates, req.user.id);
+      await storage.updatePostSchedule(scheduleId, updates, req.user.id, organizationId, workspaceId);
 
       // Record execution in history
       await storage.createScheduleExecution({
         scheduleId: scheduleId,
         userId: req.user.id,
+        executedAt: new Date(),
         status: "success",
-        message: `Schedule executed successfully on ${schedule.selectedPlatforms.length} platforms`,
-        platformsExecuted: schedule.selectedPlatforms,
+        message: `Schedule executed successfully on ${schedule.platforms?.length || 0} platforms`,
+        platformsExecuted: schedule.platforms || [],
         executionDuration: executionDuration
-      });
+      }, organizationId, workspaceId);
 
       const executionResult = {
         scheduleId: scheduleId,
         executedAt: new Date(),
-        platforms: schedule.selectedPlatforms,
+        platforms: schedule.platforms || [],
         status: 'success',
-        postsCreated: schedule.selectedPlatforms.length
+        postsCreated: schedule.platforms?.length || 0
       };
 
       res.json({
         success: true,
-        message: `Schedule executed successfully on ${schedule.selectedPlatforms.length} platforms`,
+        message: `Schedule executed successfully on ${schedule.platforms?.length || 0} platforms`,
         execution: executionResult
       });
     } catch (error) {
+      console.error("Schedule execution error:", error);
+      console.error("Error details:", error instanceof Error ? error.message : error);
+      
       // Record failed execution
       try {
+        const { organizationId, workspaceId } = getCurrentContext(req);
         await storage.createScheduleExecution({
           scheduleId: parseInt(req.params.id),
           userId: req.user.id,
+          executedAt: new Date(),
           status: "failed",
           message: error instanceof Error ? error.message : "Unknown error occurred",
           platformsExecuted: [],
           executionDuration: 0
-        });
+        }, organizationId, workspaceId);
       } catch (recordError) {
         console.error("Failed to record execution error:", recordError);
       }
@@ -2385,19 +3824,917 @@ app.get(
   app.get("/api/post-schedules/:id/history", requireAuth, async (req: any, res) => {
     try {
       const scheduleId = parseInt(req.params.id);
-      const schedule = await storage.getPostScheduleById(scheduleId, req.user.id);
+      const { organizationId, workspaceId } = getCurrentContext(req);
+      const schedule = await storage.getPostScheduleById(scheduleId, req.user.id, organizationId, workspaceId);
       
       if (!schedule) {
         return res.status(404).json({ error: "Schedule not found" });
       }
 
-      const executions = await storage.getScheduleExecutionsByScheduleId(scheduleId, req.user.id);
+      const executions = await storage.getScheduleExecutionsByScheduleId(scheduleId, req.user.id, organizationId, workspaceId);
       
       res.json(executions);
     } catch (error) {
+      console.error("Error fetching execution history:", error);
       res.status(500).json({ error: "Failed to fetch execution history" });
     }
   });
+
+  // Admin API endpoints
+  
+  // Check if user has admin privileges
+  const requireAdmin = async (req: any, res: any, next: any) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(403).json({ message: 'Admin privileges required' });
+      }
+      
+      const organizationId = getCurrentOrganizationId(req);
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: 'Admin privileges required' });
+      }
+      
+      next();
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      return res.status(403).json({ message: 'Admin privileges required' });
+    }
+  };
+
+  // Admin: Get all workspace members
+  app.get('/api/admin/workspace/members', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const workspaceId = getCurrentWorkspaceId(req);
+      const members = await storage.getWorkspaceMembers(workspaceId);
+      
+      // Format response with additional user information
+      const membersWithInfo = await Promise.all(members.map(async (member) => {
+        const user = await storage.getUser(member.userId);
+        return {
+          id: member.userId,
+          email: user?.email || 'Unknown',
+          firstName: user?.firstName || 'Unknown',
+          lastName: user?.lastName || 'Unknown',
+          role: member.role,
+          isAdmin: user?.isAdmin || false,
+          userRole: user?.userRole || 'creator',
+          accountStatus: user?.accountStatus || 'active',
+          joinedAt: member.joinedAt,
+          lastActiveAt: user?.lastActiveAt || null,
+          isActive: true
+        };
+      }));
+      
+      res.json(membersWithInfo);
+    } catch (error: any) {
+      console.error('Error fetching workspace members:', error);
+      res.status(500).json({ message: 'Failed to fetch workspace members' });
+    }
+  });
+
+  // Admin: Get all organization members (for organization owners)
+  app.get('/api/admin/organization/members', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.currentOrganizationId) {
+        return res.status(400).json({ message: 'No organization context available' });
+      }
+      
+      // Check if user is organization owner
+      const userOrganizations = await storage.getUserOrganizations(userId);
+      const userOrgRole = userOrganizations.find(uo => uo.organizationId === user.currentOrganizationId);
+      
+      if (!userOrgRole || userOrgRole.role !== 'owner') {
+        return res.status(403).json({ message: 'Only organization owners can access all organization members' });
+      }
+      
+      // Get all members from the organization
+      const organizationMembers = await storage.getOrganizationMembers(user.currentOrganizationId);
+      
+      // Get current user's workspace context for filtering
+      const currentUser = await storage.getUser(userId);
+      const currentWorkspaceId = currentUser?.currentWorkspaceId;
+      
+      // Format response with additional user information
+      const membersWithInfo = await Promise.all(organizationMembers.map(async (member) => {
+        const user = await storage.getUser(member.userId);
+        
+        // Get workspace role for CURRENT workspace only
+        let currentWorkspaceRole = null;
+        if (currentWorkspaceId) {
+          const userWorkspaces = await storage.getUserWorkspaces(member.userId);
+          const currentWorkspace = userWorkspaces.find(uw => uw.workspaceId === currentWorkspaceId);
+          if (currentWorkspace) {
+            currentWorkspaceRole = {
+              workspaceId: currentWorkspace.workspaceId,
+              role: currentWorkspace.role,
+              workspaceName: currentWorkspace.workspaceName || `Workspace ${currentWorkspace.workspaceId}`
+            };
+          }
+        }
+        
+        return {
+          id: member.userId,
+          email: user?.email || 'Unknown',
+          firstName: user?.firstName || 'Unknown',
+          lastName: user?.lastName || 'Unknown',
+          role: member.role,
+          isAdmin: user?.isAdmin || false,
+          userRole: user?.userRole || 'creator',
+          accountStatus: user?.accountStatus || 'active',
+          joinedAt: member.joinedAt,
+          lastActiveAt: user?.lastActiveAt || null,
+          isActive: member.isActive,
+          currentWorkspaceRole: currentWorkspaceRole
+        };
+      }));
+      
+      res.json(membersWithInfo);
+    } catch (error: any) {
+      console.error('Error fetching organization members:', error);
+      res.status(500).json({ message: 'Failed to fetch organization members' });
+    }
+  });
+
+  // Admin: Update user
+  app.put('/api/admin/users/:userId', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { role, isAdmin, accountStatus } = req.body;
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Get current user's organization context
+      const currentOrganizationId = getCurrentOrganizationId(req);
+      const targetUserOrganization = await storage.getUserOrganization(userId, currentOrganizationId);
+      
+      // Check if we're trying to demote an organization owner
+      if (targetUserOrganization && targetUserOrganization.role === 'owner' && role && role !== 'owner') {
+        // Count total owners in the organization
+        const ownerCount = await storage.countOrganizationOwners(currentOrganizationId);
+        
+        if (ownerCount <= 1) {
+          return res.status(400).json({ 
+            message: 'Cannot change role of the last organization owner. The organization must have at least one owner.' 
+          });
+        }
+      }
+      
+      // Update user fields
+      const updates: any = {};
+      if (role) updates.userRole = role;
+      if (typeof isAdmin === 'boolean') updates.isAdmin = isAdmin;
+      if (accountStatus) updates.accountStatus = accountStatus;
+      updates.updatedAt = new Date();
+      
+      const updatedUser = await storage.updateUser(userId, updates);
+      
+      // Also update workspace member role if provided
+      if (role) {
+        const workspaceId = getCurrentWorkspaceId(req);
+        await storage.updateWorkspaceMember(workspaceId, userId, { role });
+      }
+      
+      // If changing organization role, update the organization membership
+      if (role && targetUserOrganization) {
+        await storage.updateUserOrganization(userId, currentOrganizationId, { role });
+      }
+      
+      res.json({ success: true, user: updatedUser });
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      res.status(500).json({ message: 'Failed to update user' });
+    }
+  });
+
+  // Admin: Remove user from workspace
+  app.delete('/api/admin/users/:userId/workspace', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const workspaceId = getCurrentWorkspaceId(req);
+      const currentOrganizationId = getCurrentOrganizationId(req);
+      
+      console.log('🚀 SERVER REMOVE USER DEBUG - DELETE request received');
+      console.log('🚀 SERVER REMOVE USER DEBUG - Target user ID:', userId);
+      console.log('🚀 SERVER REMOVE USER DEBUG - Current user:', req.user.id);
+      console.log('🚀 SERVER REMOVE USER DEBUG - Workspace ID:', workspaceId);
+      console.log('🚀 SERVER REMOVE USER DEBUG - Organization ID:', currentOrganizationId);
+      
+      // Cannot remove self
+      if (userId === req.user.id) {
+        console.log('🚀 SERVER REMOVE USER DEBUG - ERROR: Cannot remove self');
+        return res.status(400).json({ message: 'Cannot remove yourself from workspace' });
+      }
+      
+      // Check if the user being removed is an organization owner
+      const targetUserOrganization = await storage.getUserOrganization(userId, currentOrganizationId);
+      
+      if (targetUserOrganization && targetUserOrganization.role === 'owner') {
+        // Count total owners in the organization
+        const ownerCount = await storage.countOrganizationOwners(currentOrganizationId);
+        
+        if (ownerCount <= 1) {
+          return res.status(400).json({ 
+            message: 'Cannot remove the last organization owner. The organization must have at least one owner. Change their role to member first.' 
+          });
+        } else {
+          return res.status(400).json({ 
+            message: 'Cannot remove organization owner. Change their role to member first, then remove them.' 
+          });
+        }
+      }
+      
+      console.log('🚀 SERVER REMOVE USER DEBUG - Calling storage.removeWorkspaceMember');
+      const result = await storage.removeWorkspaceMember(workspaceId, userId);
+      console.log('🚀 SERVER REMOVE USER DEBUG - removeWorkspaceMember result:', result);
+      
+      console.log('🚀 SERVER REMOVE USER DEBUG - User successfully removed from workspace');
+      res.json({ success: true, message: 'User removed from workspace' });
+    } catch (error: any) {
+      console.error('🚀 SERVER REMOVE USER DEBUG - Error removing user from workspace:', error);
+      res.status(500).json({ message: 'Failed to remove user from workspace' });
+    }
+  });
+
+  // Admin: Get all workspaces (with organization-based visibility)
+  app.get('/api/admin/workspaces', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get user's organization and role
+      const userOrganizations = await storage.getUserOrganizations(userId);
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.currentOrganizationId) {
+        return res.status(400).json({ message: 'User has no organization context' });
+      }
+      
+      // Find the user's role in the current organization
+      const userOrgRole = userOrganizations.find(uo => uo.organizationId === user.currentOrganizationId);
+      
+      console.log('🔍 ADMIN DEBUG - User:', userId, 'OrgRole:', userOrgRole, 'CurrentOrgId:', user.currentOrganizationId);
+      
+      let workspaces;
+      
+      if (userOrgRole && userOrgRole.role === 'owner') {
+        // 🔐 Organization Owner: Show ALL workspaces in the organization
+        console.log('🔍 Admin Owner detected - fetching all workspaces for organization:', user.currentOrganizationId);
+        workspaces = await storage.getWorkspacesByOrganizationId(user.currentOrganizationId);
+      } else {
+        // 🔐 Non-Owner: Show only workspaces where user has administrator role
+        console.log('🔍 Non-owner detected - fetching user workspace roles for user:', userId);
+        const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, user.currentOrganizationId);
+        console.log('🔍 User workspace roles found:', userWorkspaceRoles);
+        const adminWorkspaceRoles = userWorkspaceRoles.filter(uwr => uwr.role === 'administrator');
+        console.log('🔍 Admin workspace roles filtered:', adminWorkspaceRoles);
+        workspaces = await Promise.all(adminWorkspaceRoles.map(async (roleAssignment) => {
+          return await storage.getWorkspace(roleAssignment.workspaceId);
+        }));
+        workspaces = workspaces.filter(w => w !== undefined);
+        console.log('🔍 Final workspaces for non-owner:', workspaces);
+      }
+      
+      // Get additional information for each workspace
+      const workspacesWithInfo = await Promise.all(workspaces.map(async (workspace) => {
+        // Get all workspace members (including inactive ones for admin count)
+        const allMembers = await storage.getAllWorkspaceMembers(workspace.id);
+        const activeMembers = await storage.getWorkspaceMembers(workspace.id);
+        
+        // Get organization owner as workspace owner
+        const organization = await storage.getOrganization(workspace.organizationId);
+        const owner = organization ? await storage.getUser(organization.ownerId) : null;
+        
+        // Generate owner name with fallback logic
+        let ownerName = 'Unknown';
+        let ownerEmail = 'Unknown';
+        if (owner) {
+          if (owner.firstName && owner.lastName) {
+            ownerName = `${owner.firstName} ${owner.lastName}`;
+          } else if (owner.firstName) {
+            ownerName = owner.firstName;
+          } else if (owner.lastName) {
+            ownerName = owner.lastName;
+          } else if (owner.username) {
+            ownerName = owner.username;
+          } else if (owner.email) {
+            ownerName = owner.email;
+          }
+          ownerEmail = owner.email || 'Unknown';
+        }
+
+        console.log(`🔍 Workspace ${workspace.name} (ID: ${workspace.id}) - AllMembers: ${allMembers.length}, ActiveMembers: ${activeMembers.length}`);
+        
+        return {
+          id: workspace.id,
+          name: workspace.name,
+          uniqueId: workspace.uniqueId,
+          description: workspace.description,
+          createdAt: workspace.createdAt,
+          updatedAt: workspace.updatedAt,
+          memberCount: allMembers.length,
+          activeMemberCount: activeMembers.length,
+          ownerId: organization?.ownerId || null,
+          ownerName: ownerName,
+          ownerEmail: ownerEmail
+        };
+      }));
+      
+      res.json(workspacesWithInfo);
+    } catch (error: any) {
+      console.error('Error fetching admin workspaces:', error);
+      res.status(500).json({ message: 'Failed to fetch workspaces' });
+    }
+  });
+
+  // Admin: Create workspace
+  app.post('/api/admin/workspaces', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { name, description } = req.body;
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: 'Workspace name is required' });
+      }
+      
+      // Get current organization context
+      const { organizationId } = getCurrentContext(req);
+      
+      // Check for duplicate workspace name
+      const existingWorkspace = await storage.getWorkspaceByName(name.trim());
+      if (existingWorkspace) {
+        return res.status(400).json({ message: 'A workspace with this name already exists' });
+      }
+      
+      const workspace = await storage.createWorkspace({
+        name: name.trim(),
+        description: description?.trim() || null,
+        organizationId: organizationId,
+        organizationKey: `org_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ownerUserId: req.user.id,
+        uniqueId: `workspace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      // Add the creator as an administrator member of the workspace
+      await storage.createUserWorkspace({
+        userId: req.user.id,
+        workspaceId: workspace.id,
+        role: 'administrator',
+        isActive: true
+      });
+      
+      res.json({ success: true, workspace });
+    } catch (error: any) {
+      console.error('Error creating workspace:', error);
+      res.status(500).json({ message: 'Failed to create workspace' });
+    }
+  });
+
+  // Admin: Update workspace
+  app.put('/api/admin/workspaces/:workspaceId', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { workspaceId } = req.params;
+      const { name, description } = req.body;
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: 'Workspace name is required' });
+      }
+      
+      // Check for duplicate workspace name (except for current workspace)
+      const existingWorkspace = await storage.getWorkspaceByName(name.trim());
+      if (existingWorkspace && existingWorkspace.id !== parseInt(workspaceId)) {
+        return res.status(400).json({ message: 'A workspace with this name already exists' });
+      }
+      
+      const updates = {
+        name: name.trim(),
+        description: description?.trim() || null,
+        updatedAt: new Date()
+      };
+      
+      const updatedWorkspace = await storage.updateWorkspace(parseInt(workspaceId), updates);
+      
+      if (!updatedWorkspace) {
+        return res.status(404).json({ message: 'Workspace not found' });
+      }
+      
+      res.json({ success: true, workspace: updatedWorkspace });
+    } catch (error: any) {
+      console.error('Error updating workspace:', error);
+      res.status(500).json({ message: 'Failed to update workspace' });
+    }
+  });
+
+  // Admin: Switch workspace
+  app.post('/api/admin/workspaces/:workspaceId/switch', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { workspaceId } = req.params;
+      const workspaceIdInt = parseInt(workspaceId);
+      
+      // Verify workspace exists and user has access
+      const workspace = await storage.getWorkspace(workspaceIdInt);
+      if (!workspace) {
+        return res.status(404).json({ message: 'Workspace not found' });
+      }
+      
+      // Update user's current workspace
+      await storage.updateUserWorkspace(req.user.id, workspaceIdInt);
+      
+      // Update the session with the new workspace ID
+      req.user.currentWorkspaceId = workspaceIdInt;
+      req.user.lastWorkspaceId = workspaceIdInt;
+      
+      // Save session to ensure persistence
+      req.session.save((err: any) => {
+        if (err) {
+          console.error('Error saving session:', err);
+        }
+      });
+      
+      res.json({ success: true, workspace });
+    } catch (error: any) {
+      console.error('Error switching workspace:', error);
+      res.status(500).json({ message: 'Failed to switch workspace' });
+    }
+  });
+
+  // Admin: Delete workspace
+  app.delete('/api/admin/workspaces/:workspaceId', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { workspaceId } = req.params;
+      const workspaceIdInt = parseInt(workspaceId);
+      
+      // Cannot delete current workspace
+      const currentWorkspaceId = getCurrentWorkspaceId(req);
+      if (workspaceIdInt === currentWorkspaceId) {
+        return res.status(400).json({ message: 'Cannot delete current workspace. Please switch to another workspace first.' });
+      }
+      
+      // Check if workspace has multiple members (excluding the creator)
+      const members = await storage.getWorkspaceMembers(workspaceIdInt);
+      if (members.length > 1) {
+        return res.status(400).json({ message: `Cannot delete workspace with ${members.length} members. Please remove members first.` });
+      }
+      
+      await storage.deleteWorkspace(workspaceIdInt);
+      res.json({ success: true, message: 'Workspace deleted successfully' });
+    } catch (error: any) {
+      console.error('Error deleting workspace:', error);
+      res.status(500).json({ message: 'Failed to delete workspace' });
+    }
+  });
+
+  // Workspace Role Management API endpoints
+  app.get('/api/workspace-roles', requireAuth, async (req: any, res) => {
+    try {
+      const roles = await storage.getWorkspaceRoles();
+      res.json(roles);
+    } catch (error: any) {
+      console.error('Error fetching workspace roles:', error);
+      res.status(500).json({ message: 'Failed to fetch workspace roles' });
+    }
+  });
+
+  app.post('/api/workspace-roles', requireAuth, async (req: any, res) => {
+    try {
+      const { name, description, permissions } = req.body;
+      
+      if (!name || !description || !Array.isArray(permissions)) {
+        return res.status(400).json({ message: 'Name, description, and permissions are required' });
+      }
+
+      const role = await storage.createWorkspaceRole({
+        name,
+        description,
+        permissions
+      });
+
+      res.json(role);
+    } catch (error: any) {
+      console.error('Error creating workspace role:', error);
+      res.status(500).json({ message: 'Failed to create workspace role' });
+    }
+  });
+
+  app.get('/api/workspace-roles/:name', requireAuth, async (req: any, res) => {
+    try {
+      const { name } = req.params;
+      const role = await storage.getWorkspaceRoleByName(name);
+      
+      if (!role) {
+        return res.status(404).json({ message: 'Role not found' });
+      }
+
+      res.json(role);
+    } catch (error: any) {
+      console.error('Error fetching workspace role:', error);
+      res.status(500).json({ message: 'Failed to fetch workspace role' });
+    }
+  });
+
+  app.put('/api/workspace-roles/:id', requireAuth, async (req: any, res) => {
+    try {
+      const roleId = parseInt(req.params.id);
+      const { name, description, permissions } = req.body;
+      
+      if (isNaN(roleId)) {
+        return res.status(400).json({ message: 'Invalid role ID' });
+      }
+
+      const updates: any = {};
+      if (name) updates.name = name;
+      if (description) updates.description = description;
+      if (Array.isArray(permissions)) updates.permissions = permissions;
+
+      const role = await storage.updateWorkspaceRole(roleId, updates);
+      
+      if (!role) {
+        return res.status(404).json({ message: 'Role not found' });
+      }
+
+      res.json(role);
+    } catch (error: any) {
+      console.error('Error updating workspace role:', error);
+      res.status(500).json({ message: 'Failed to update workspace role' });
+    }
+  });
+
+  app.delete('/api/workspace-roles/:id', requireAuth, async (req: any, res) => {
+    try {
+      const roleId = parseInt(req.params.id);
+      
+      if (isNaN(roleId)) {
+        return res.status(400).json({ message: 'Invalid role ID' });
+      }
+
+      const deleted = await storage.deleteWorkspaceRole(roleId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: 'Role not found' });
+      }
+
+      res.json({ success: true, message: 'Role deleted successfully' });
+    } catch (error: any) {
+      console.error('Error deleting workspace role:', error);
+      res.status(500).json({ message: 'Failed to delete workspace role' });
+    }
+  });
+
+  // User Workspace Role Management API endpoints
+  app.get('/api/user-workspace-roles/:workspaceId', requireAuth, async (req: any, res) => {
+    try {
+      const workspaceId = parseInt(req.params.workspaceId);
+      
+      if (isNaN(workspaceId)) {
+        return res.status(400).json({ message: 'Invalid workspace ID' });
+      }
+
+      const userRoles = await storage.getUserWorkspaceRolesByWorkspace(workspaceId);
+      res.json(userRoles);
+    } catch (error: any) {
+      console.error('Error fetching user workspace roles:', error);
+      res.status(500).json({ message: 'Failed to fetch user workspace roles' });
+    }
+  });
+
+  // Get all workspace role assignments for all users in organization (for admin view)
+  app.get('/api/admin/all-user-workspace-roles', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      // Check if user has admin privileges
+      if (!(await hasAdminAccess(userId, organizationId))) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      // Get all users in the organization
+      const organizationUsers = await storage.getUsersByOrganizationId(organizationId);
+      
+      // Get all workspace role assignments for users in this organization
+      const allUserWorkspaceRoles = await storage.getAllUserWorkspaceRolesForOrganization(organizationId);
+      
+      // Group roles by user ID for easier frontend consumption
+      const userRolesMap = new Map();
+      
+      for (const roleAssignment of allUserWorkspaceRoles) {
+        const userId = roleAssignment.userId;
+        if (!userRolesMap.has(userId)) {
+          userRolesMap.set(userId, []);
+        }
+        userRolesMap.get(userId).push(roleAssignment);
+      }
+      
+      // Convert map to object for JSON response
+      const userRolesObject = Object.fromEntries(userRolesMap);
+      
+      res.json(userRolesObject);
+    } catch (error: any) {
+      console.error('Error fetching all user workspace roles:', error);
+      res.status(500).json({ message: 'Failed to fetch all user workspace roles' });
+    }
+  });
+
+  app.post('/api/user-workspace-roles', requireAuth, async (req: any, res) => {
+    try {
+      const { userId, workspaceId, roleId } = req.body;
+      
+      if (!userId || !workspaceId || !roleId) {
+        return res.status(400).json({ message: 'User ID, workspace ID, and role ID are required' });
+      }
+
+      const currentUserId = req.user.id;
+      const currentUser = await storage.getUser(currentUserId);
+      
+      if (!currentUser || !currentUser.currentOrganizationId) {
+        return res.status(400).json({ message: 'No organization context available' });
+      }
+
+      // Check if current user is organization owner
+      const userOrganizations = await storage.getUserOrganizations(currentUserId);
+      const userOrgRole = userOrganizations.find(uo => uo.organizationId === currentUser.currentOrganizationId);
+      const isOrgOwner = userOrgRole && userOrgRole.role === 'owner';
+
+      // If user is organization owner, allow assignment across all workspaces
+      if (isOrgOwner) {
+        // Verify the target workspace belongs to the same organization
+        const targetWorkspace = await storage.getWorkspace(workspaceId);
+        if (!targetWorkspace || targetWorkspace.organizationId !== currentUser.currentOrganizationId) {
+          return res.status(403).json({ message: 'Target workspace does not belong to your organization' });
+        }
+
+        // Verify the target user belongs to the same organization
+        const targetUserOrganization = await storage.getUserOrganization(userId, currentUser.currentOrganizationId);
+        if (!targetUserOrganization) {
+          return res.status(403).json({ message: 'Target user does not belong to your organization' });
+        }
+
+        // If user is not already a member of the workspace, add them first
+        const existingMembership = await storage.getUserWorkspaceByIds(userId, workspaceId);
+        if (!existingMembership) {
+          await storage.addUserToWorkspace(userId, workspaceId, 'member');
+        }
+      } else {
+        // For non-owners, verify current user has access to the workspace
+        const currentUserWorkspace = await storage.getUserWorkspaceByIds(currentUserId, workspaceId);
+        if (!currentUserWorkspace) {
+          return res.status(403).json({ message: 'Access denied to this workspace' });
+        }
+      }
+
+      const assignment = await storage.assignUserWorkspaceRole({
+        userId,
+        workspaceId,
+        roleId,
+        assignedByUserId: currentUserId
+      });
+
+      res.json(assignment);
+    } catch (error: any) {
+      console.error('Error assigning user workspace role:', error);
+      res.status(500).json({ message: 'Failed to assign user workspace role' });
+    }
+  });
+
+  app.delete('/api/user-workspace-roles/:userId/:workspaceId/:roleId', requireAuth, async (req: any, res) => {
+    try {
+      const { userId, workspaceId, roleId } = req.params;
+      
+      const workspaceIdInt = parseInt(workspaceId);
+      const roleIdInt = parseInt(roleId);
+      
+      console.log('🔥 DELETE REQUEST - UserId:', userId, 'WorkspaceId:', workspaceIdInt, 'RoleId:', roleIdInt);
+      
+      if (isNaN(workspaceIdInt) || isNaN(roleIdInt)) {
+        return res.status(400).json({ message: 'Invalid workspace ID or role ID' });
+      }
+
+      // Debug: Check what roles exist for this user in this workspace
+      const existingRoles = await storage.getUserWorkspaceRolesByWorkspace(workspaceIdInt);
+      const userRoles = existingRoles.filter((role: any) => role.userId === userId);
+      console.log('🔍 Existing roles for user:', userRoles);
+
+      const removed = await storage.removeUserWorkspaceRole(userId, workspaceIdInt, roleIdInt);
+      console.log('🗑️ Remove result:', removed);
+      
+      if (!removed) {
+        return res.status(404).json({ message: 'Role assignment not found' });
+      }
+
+      res.json({ success: true, message: 'Role assignment removed successfully' });
+    } catch (error: any) {
+      console.error('Error removing user workspace role:', error);
+      res.status(500).json({ message: 'Failed to remove user workspace role' });
+    }
+  });
+
+  app.get('/api/user-workspace-permissions/:userId/:workspaceId', requireAuth, async (req: any, res) => {
+    try {
+      const { userId, workspaceId } = req.params;
+      
+      const workspaceIdInt = parseInt(workspaceId);
+      
+      if (isNaN(workspaceIdInt)) {
+        return res.status(400).json({ message: 'Invalid workspace ID' });
+      }
+
+      const permissions = await storage.getUserWorkspacePermissions(userId, workspaceIdInt);
+      res.json({ permissions });
+    } catch (error: any) {
+      console.error('Error fetching user workspace permissions:', error);
+      res.status(500).json({ message: 'Failed to fetch user workspace permissions' });
+    }
+  });
+
+  app.post('/api/check-workspace-permission', requireAuth, async (req: any, res) => {
+    try {
+      const { userId, workspaceId, permission } = req.body;
+      
+      if (!userId || !workspaceId || !permission) {
+        return res.status(400).json({ message: 'User ID, workspace ID, and permission are required' });
+      }
+
+      const hasPermission = await storage.hasWorkspacePermission(userId, workspaceId, permission);
+      res.json({ hasPermission });
+    } catch (error: any) {
+      console.error('Error checking workspace permission:', error);
+      res.status(500).json({ message: 'Failed to check workspace permission' });
+    }
+  });
+
+  // Delete user completely endpoint
+  app.delete('/api/admin/users/:userId/delete-completely', requireAuth, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const currentUserId = req.user?.id;
+      const organizationId = getCurrentOrganizationId(req);
+      
+      console.log('🗑️ DELETE USER API - Received request for userId:', userId, 'from currentUser:', currentUserId);
+
+      if (!userId || !currentUserId || !organizationId) {
+        return res.status(400).json({ message: 'Missing required parameters' });
+      }
+
+      // Verify admin access using hasAdminAccess function
+      const adminAccess = await hasAdminAccess(currentUserId, organizationId);
+      if (!adminAccess) {
+        console.log('🗑️ DELETE USER API - Access denied for user:', currentUserId);
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      // Check if target user is organization owner
+      const organizationOwners = await storage.getOrganizationOwners(organizationId);
+      const isTargetUserOwner = organizationOwners.some(owner => owner.userId === userId);
+      
+      if (isTargetUserOwner) {
+        console.log('🗑️ DELETE USER API - Cannot delete organization owner:', userId);
+        return res.status(403).json({ message: 'Cannot delete organization owners' });
+      }
+
+      // Check if current user is trying to delete themselves
+      if (currentUserId === userId) {
+        console.log('🗑️ DELETE USER API - User trying to delete themselves:', userId);
+        return res.status(403).json({ message: 'Cannot delete your own account' });
+      }
+
+      console.log('🗑️ DELETE USER API - Starting deletion process for userId:', userId);
+
+      // Step 1: Get user workspaces in this organization
+      const userWorkspaces = await storage.getUserWorkspacesByOrganization(userId, organizationId);
+      console.log('🗑️ DELETE USER API - Found user workspaces:', userWorkspaces.length);
+
+      // Step 2: Delete all user content and data for each workspace
+      for (const workspace of userWorkspaces) {
+        const workspaceId = workspace.workspaceId;
+        console.log('🗑️ DELETE USER API - Processing workspace:', workspaceId);
+
+        try {
+          // Delete posts and related content
+          console.log('🗑️ DELETE USER API - Getting posts for user:', userId, 'workspace:', workspaceId);
+          const posts = await storage.getPostsByUserId(userId, organizationId, workspaceId);
+          console.log('🗑️ DELETE USER API - Found posts:', posts.length);
+          
+          for (const post of posts) {
+            console.log('🗑️ DELETE USER API - Processing post:', post.id);
+            
+            // Delete schedule executions for this post's schedules
+            console.log('🗑️ DELETE USER API - Getting schedules for user:', userId, 'workspace:', workspaceId);
+            const schedules = await storage.getPostSchedulesByUserId(userId, workspaceId);
+            for (const schedule of schedules) {
+              if (schedule.postId === post.id) {
+                console.log('🗑️ DELETE USER API - Deleting schedule executions for schedule:', schedule.id);
+                await storage.deleteScheduleExecutions(schedule.id);
+              }
+            }
+            
+            // Delete published posts
+            console.log('🗑️ DELETE USER API - Deleting published posts for post:', post.id);
+            await storage.deletePublishedPosts(post.id);
+            
+            // Delete generated content
+            console.log('🗑️ DELETE USER API - Deleting generated content for post:', post.id);
+            await storage.deleteGeneratedContent(post.id);
+            
+            // Delete the post
+            console.log('🗑️ DELETE USER API - Deleting post:', post.id, 'userId:', userId, 'orgId:', organizationId, 'workspaceId:', workspaceId);
+            await storage.deletePost(post.id, userId, organizationId, workspaceId);
+          }
+
+          // Delete post schedules
+          console.log('🗑️ DELETE USER API - Deleting remaining schedules');
+          const schedules = await storage.getPostSchedulesByUserId(userId, workspaceId);
+          for (const schedule of schedules) {
+            console.log('🗑️ DELETE USER API - Deleting schedule:', schedule.id, 'userId:', userId, 'orgId:', organizationId, 'workspaceId:', workspaceId);
+            await storage.deletePostSchedule(schedule.id, userId, organizationId, workspaceId);
+          }
+
+          // Delete templates
+          console.log('🗑️ DELETE USER API - Deleting templates');
+          const templates = await storage.getTemplatesByUserId(userId, organizationId, workspaceId);
+          for (const template of templates) {
+            console.log('🗑️ DELETE USER API - Deleting template:', template.id);
+            await storage.deleteTemplate(template.id, userId, organizationId, workspaceId);
+          }
+
+          // Delete images
+          console.log('🗑️ DELETE USER API - Deleting images');
+          const images = await storage.getImagesByUserId(userId, organizationId, workspaceId);
+          for (const image of images) {
+            console.log('🗑️ DELETE USER API - Deleting image:', image.id);
+            await storage.deleteImage(image.id, userId, workspaceId);
+          }
+
+          // Delete folders
+          console.log('🗑️ DELETE USER API - Deleting folders');
+          const folders = await storage.getFoldersByUserId(userId, organizationId, workspaceId);
+          for (const folder of folders) {
+            console.log('🗑️ DELETE USER API - Deleting folder:', folder.id);
+            await storage.deleteFolder(folder.id, userId, workspaceId);
+          }
+
+          // Delete social media configs
+          console.log('🗑️ DELETE USER API - Deleting social media configs');
+          const socialConfigs = await storage.getSocialMediaConfigs(userId, workspaceId);
+          for (const config of socialConfigs) {
+            console.log('🗑️ DELETE USER API - Deleting social config:', config.id);
+            await storage.deleteSocialMediaConfig(config.id, userId, workspaceId);
+          }
+
+          // Anonymize payment transactions
+          console.log('🗑️ DELETE USER API - Anonymizing transactions');
+          await storage.anonymizeUserTransactions(userId, workspaceId);
+          
+        } catch (error) {
+          console.error('🗑️ DELETE USER API - Error in workspace processing:', error);
+          throw error;
+        }
+      }
+
+      // Step 3: Delete user workspace roles for this organization
+      await storage.deleteUserWorkspaceRoles(userId, organizationId);
+
+      // Step 4: Delete user workspace memberships for this organization
+      await storage.deleteUserWorkspaces(userId, organizationId);
+
+      // Step 5: Delete user organization membership
+      await storage.deleteUserOrganization(userId, organizationId);
+
+      // Step 6: Delete user invitations for this organization
+      await storage.deleteUserInvitations(userId, organizationId);
+
+      // Step 7: Check if user belongs to any other organizations
+      const remainingOrganizations = await storage.getUserOrganizations(userId);
+      
+      // Step 8: If no other organizations, delete the user account completely
+      if (remainingOrganizations.length === 0) {
+        console.log('🗑️ DELETE USER API - User has no other organizations, deleting account:', userId);
+        await storage.deleteUserAccount(userId);
+      } else {
+        console.log('🗑️ DELETE USER API - User belongs to other organizations, keeping account:', userId, 'OrgCount:', remainingOrganizations.length);
+      }
+
+      console.log('🗑️ DELETE USER API - Deletion completed for userId:', userId);
+      res.json({ 
+        success: true, 
+        message: 'User completely deleted from organization',
+        deletedAccount: remainingOrganizations.length === 0
+      });
+
+    } catch (error: any) {
+      console.error('🗑️ DELETE USER API - Error:', error);
+      res.status(500).json({ 
+        message: 'Failed to delete user completely',
+        error: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

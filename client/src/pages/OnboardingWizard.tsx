@@ -15,6 +15,7 @@ import OnboardingStep4 from '@/components/onboarding/OnboardingStep4';
 import OnboardingStep5 from '@/components/onboarding/OnboardingStep5';
 import OnboardingStep6 from '@/components/onboarding/OnboardingStep6';
 import OnboardingStep7 from '@/components/onboarding/OnboardingStep7';
+import OnboardingStep8 from '@/components/onboarding/OnboardingStep8';
 
 interface OnboardingData {
   profileType: string;
@@ -28,6 +29,8 @@ interface OnboardingData {
   primaryGoals: string[];
   timezone: string;
   language: string;
+  organizationName: string;
+  workspaceName: string;
 }
 
 export default function OnboardingWizard() {
@@ -43,7 +46,9 @@ export default function OnboardingWizard() {
     interestedPlatforms: [],
     primaryGoals: [],
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    language: navigator.language.split('-')[0] || 'en'
+    language: navigator.language.split('-')[0] || 'en',
+    organizationName: '',
+    workspaceName: ''
   });
 
   const { data: user } = useQuery({
@@ -81,7 +86,17 @@ export default function OnboardingWizard() {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all user-related queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/organization/current'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workspace/current'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workspaces'] });
+      
+      // Force refetch of organization and workspace data
+      queryClient.refetchQueries({ queryKey: ['/api/organization/current'] });
+      queryClient.refetchQueries({ queryKey: ['/api/workspace/current'] });
+      queryClient.refetchQueries({ queryKey: ['/api/workspaces'] });
+      
       toast({
         title: "Welcome to PostMeAI!",
         description: "Your onboarding is complete. Let's start creating amazing content!",
@@ -115,7 +130,9 @@ export default function OnboardingWizard() {
         language: user.language || navigator.language.split('-')[0] || 'en',
         profileType: user.profileType || 'individual',
         primaryGoals: user.primaryGoals || [],
-        interestedPlatforms: user.interestedPlatforms || []
+        interestedPlatforms: user.interestedPlatforms || [],
+        organizationName: user.organizationName || '',
+        workspaceName: user.workspaceName || ''
       }));
     }
   }, [user]);
@@ -145,7 +162,7 @@ export default function OnboardingWizard() {
   };
 
   const nextStep = async () => {
-    if (currentStep < 7) {
+    if (currentStep < 8) {
       await saveStepData();
       setCurrentStep(prev => prev + 1);
     }
@@ -184,6 +201,8 @@ export default function OnboardingWizard() {
         return onboardingData.primaryGoals.length > 0;
       case 6:
         return onboardingData.timezone !== '' && onboardingData.language !== '';
+      case 7:
+        return onboardingData.organizationName.trim() !== '' && onboardingData.workspaceName.trim() !== '';
       default:
         return true;
     }
@@ -204,13 +223,15 @@ export default function OnboardingWizard() {
       case 6:
         return <OnboardingStep6 data={onboardingData} updateData={updateOnboardingData} />;
       case 7:
-        return <OnboardingStep7 data={onboardingData} updateData={updateOnboardingData} setCurrentStep={setCurrentStep} />;
+        return <OnboardingStep7 data={onboardingData} updateData={updateOnboardingData} />;
+      case 8:
+        return <OnboardingStep8 data={onboardingData} updateData={updateOnboardingData} setCurrentStep={setCurrentStep} />;
       default:
         return null;
     }
   };
 
-  const progressPercentage = (currentStep / 7) * 100;
+  const progressPercentage = (currentStep / 8) * 100;
 
   return (
     <Card className="w-full bg-white dark:bg-gray-900 shadow-2xl border-0">
@@ -229,7 +250,7 @@ export default function OnboardingWizard() {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                Step {currentStep} of 7
+                Step {currentStep} of 8
               </span>
               <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
                 {Math.round(progressPercentage)}% Complete
@@ -256,7 +277,7 @@ export default function OnboardingWizard() {
             </Button>
 
             <div className="flex items-center gap-2">
-              {currentStep < 7 ? (
+              {currentStep < 8 ? (
                 <Button
                   onClick={nextStep}
                   disabled={!canProceed()}

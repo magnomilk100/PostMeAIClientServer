@@ -147,7 +147,11 @@ export default function ScheduleStep8() {
               <div>
                 <h3 className="font-semibold text-standard mb-3">Selected Platforms</h3>
                 <div className="flex flex-wrap gap-3">
-                  {scheduleData.selectedPlatforms?.map((platformId) => {
+                  {scheduleData.selectedPlatforms?.filter((platformId) => {
+                    // Only show platforms that are active (not disabled in step 2)
+                    const platformState = scheduleData.platformStates?.[platformId];
+                    return platformState !== false; // Show if true or undefined (default active)
+                  }).map((platformId) => {
                     const config = platformConfigs[platformId as keyof typeof platformConfigs];
                     if (!config) return null;
                     const Icon = config.icon;
@@ -181,7 +185,11 @@ export default function ScheduleStep8() {
               <div>
                 <h3 className="font-semibold text-standard mb-3">Platform Features</h3>
                 <div className="space-y-3">
-                  {scheduleData.selectedPlatforms?.map((platform) => {
+                  {scheduleData.selectedPlatforms?.filter((platform) => {
+                    // Only show platforms that are active (not disabled in step 2)
+                    const platformState = scheduleData.platformStates?.[platform];
+                    return platformState !== false; // Show if true or undefined (default active)
+                  }).map((platform) => {
                     const config = scheduleData.platformConfigs?.[platform];
                     if (!config) return null;
                     
@@ -192,7 +200,7 @@ export default function ScheduleStep8() {
                         <h4 className="font-medium capitalize text-standard mb-2">{platform}</h4>
                         <div className="flex flex-wrap gap-1">
                           {enabledFeatures.map(([feature]) => (
-                            <Badge key={feature} variant="default" className="text-xs capitalize">
+                            <Badge key={feature} variant="secondary" className="text-xs capitalize text-white bg-purple-600">
                               {feature}
                             </Badge>
                           ))}
@@ -218,7 +226,11 @@ export default function ScheduleStep8() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                {scheduleData.selectedPlatforms?.map((platformId) => {
+                {scheduleData.selectedPlatforms?.filter((platformId) => {
+                  // Only show platforms that are active (not disabled in step 2)
+                  const platformState = scheduleData.platformStates?.[platformId];
+                  return platformState !== false; // Show if true or undefined (default active)
+                }).map((platformId) => {
                   const platform = platformConfigs[platformId as keyof typeof platformConfigs];
                   if (!platform) return null;
                   const Icon = platform.icon;

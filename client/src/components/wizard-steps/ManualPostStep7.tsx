@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useWizard } from "@/contexts/WizardContext";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   CheckCircle2, 
   Calendar, 
@@ -47,7 +47,10 @@ export default function ManualPostStep7() {
         description: scheduleDescription.trim() || null,
         subject: wizardData.step1Data?.title || "Manual Post Schedule",
         postContent: wizardData.step1Data || {},
-        platforms: wizardData.platforms || [],
+        platforms: Object.keys(wizardData.step3PlatformContent || {}).filter(platformId => {
+          const platformContent = wizardData.step3PlatformContent?.[platformId];
+          return platformContent?.active === true;
+        }),
         scheduleConfig: wizardData.scheduleConfig || {},
         links: wizardData.links || {},
         selectedImages: wizardData.selectedImages || [],
@@ -55,10 +58,10 @@ export default function ManualPostStep7() {
         status: "active"
       };
 
-      const response = await apiRequest('/api/post-schedules', {
-        method: 'POST',
-        body: JSON.stringify(scheduleData)
-      });
+      const response = await apiRequest('POST', '/api/post-schedules', scheduleData);
+
+      // Invalidate cache to refresh Post Scheduler page
+      queryClient.invalidateQueries({ queryKey: ['/api/post-schedules'] });
 
       toast({
         title: "Schedule Created Successfully!",
@@ -80,7 +83,10 @@ export default function ManualPostStep7() {
   };
 
   // Calculate totals for display
-  const selectedPlatforms = wizardData.platforms || [];
+  const selectedPlatforms = Object.keys(wizardData.step3PlatformContent || {}).filter(platformId => {
+    const platformContent = wizardData.step3PlatformContent?.[platformId];
+    return platformContent?.active === true;
+  });
   const selectedImages = wizardData.selectedImages || [];
   const links = wizardData.links || {};
   const postData = wizardData.step1Data || {};

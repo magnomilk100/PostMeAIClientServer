@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import Layout from "@/components/Layout";
+import { AuthGuard } from "@/components/AuthGuard";
 import Home from "@/pages/Home";
 import Post from "@/pages/Post";
 import ManualPost from "@/pages/ManualPost";
@@ -27,6 +28,11 @@ import UserDataDeletion from "@/pages/UserDataDeletion";
 import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
+import AdminInvitation from "@/pages/AdminInvitation";
+import AdminUserManagement from "@/pages/AdminUserManagement";
+import AdminWorkspaceManagement from "@/pages/AdminWorkspaceManagement";
+import InvitationAcceptance from "@/pages/InvitationAcceptance";
+import TermsOfUse from "@/pages/TermsOfUse";
 
 import I18nDemo from "@/pages/I18nDemo";
 import Features from "@/pages/Features";
@@ -67,6 +73,29 @@ function Router() {
         </Route>
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
+        <Route path="/admin/invitations">
+          {() => (
+            <AuthGuard>
+              <AdminInvitation />
+            </AuthGuard>
+          )}
+        </Route>
+        <Route path="/admin/users">
+          {() => (
+            <AuthGuard>
+              <AdminUserManagement />
+            </AuthGuard>
+          )}
+        </Route>
+        <Route path="/admin/workspaces">
+          {() => (
+            <AuthGuard>
+              <AdminWorkspaceManagement />
+            </AuthGuard>
+          )}
+        </Route>
+        <Route path="/invitation/:key" component={InvitationAcceptance} />
+        <Route path="/terms-of-use" component={TermsOfUse} />
 
         <Route path="/i18n-demo" component={I18nDemo} />
         <Route path="/features" component={Features} />
