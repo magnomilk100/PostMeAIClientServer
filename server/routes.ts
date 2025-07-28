@@ -3094,10 +3094,14 @@ app.get(
         const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, user.currentOrganizationId);
         console.log('🔍 User workspace roles found:', userWorkspaceRoles);
         
-        // Format response with workspace details and user's role
-        workspaces = await Promise.all(userWorkspaceRoles.map(async (roleAssignment) => {
-          const workspace = await storage.getWorkspace(roleAssignment.workspaceId);
-          const members = await storage.getWorkspaceMembers(roleAssignment.workspaceId);
+       // Group roles by workspace to avoid duplicates (user may have multiple roles in same workspace)
+       const workspaceRoleMap = new Map();
+       userWorkspaceRoles.forEach(roleAssignment => {
+         const workspaceId = roleAssignment.workspaceId;
+         if (!workspaceRoleMap.has(workspaceId)) {
+           workspaceRoleMap.set(workspaceId, []);
+         }
+         workspaceRoleMap.get(workspaceId).push(roleAssignment.role);
 
           const workspaceResponse = {
             id: workspace.id,
