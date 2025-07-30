@@ -11,10 +11,11 @@ import {
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Building2, Check, Users, Crown, Shield, Eye } from "lucide-react";
+import { ChevronDown, Building2, Check, Users, Crown, Shield, Eye, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { useOrganizationRole, useAdminAccess } from "@/hooks/useOrganizationRole";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Workspace {
   id: number;
