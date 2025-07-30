@@ -1,5 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Search, Bell, Rocket, Home, Edit, Layers, Image, Share2, Settings, Book, LogOut, Loader2, CreditCard, Crown, Video, Clock, X, Users, MessageSquare, AlertTriangle, CheckCircle, Globe, Menu, Calendar, Star, Shield, UserPlus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import postmeLogo from "@/assets/images/AIOnlyLogo.png";
+import postmeText from "@/assets/images/OnlyTextTransp.png";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -114,6 +116,7 @@ export default function Layout({ children }: LayoutProps) {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
+
   const handleMouseMove = (e: MouseEvent) => {
     if (!isResizing) return;
     const newWidth = e.clientX;
@@ -121,11 +124,13 @@ export default function Layout({ children }: LayoutProps) {
       setSidebarWidth(newWidth);
     }
   };
+
   const handleMouseUp = () => {
     setIsResizing(false);
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
+
   // Cleanup resize listeners on unmount
   useEffect(() => {
     return () => {
@@ -133,21 +138,26 @@ export default function Layout({ children }: LayoutProps) {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
+
   // Photo click handler
   const handlePhotoClick = () => {
     setShouldFlashChangePhoto(true);
     setLocation('/settings?tab=profile&flash=changePhoto');
   };
+
   // Header dropdown handlers
   const handleHeaderSettings = () => {
     setLocation('/settings');
   };
+
   const handleHeaderSubscription = () => {
     setLocation('/subscription-plan');
   };
+
   const handleHeaderBilling = () => {
     setLocation('/billing');
   };
+
   // Search queries with database integration
   const { data: searchResults = [], isLoading: isSearching } = useQuery({
     queryKey: ["/api/search", { q: searchQuery }],
@@ -312,10 +322,18 @@ export default function Layout({ children }: LayoutProps) {
               </Button>
             )}
             
-            <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center animate-float shadow-lg">
-              <Rocket className="text-white w-4 h-4" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent dark:bg-none dark:text-white">PostMe AI</span>
+            <img 
+              src={postmeLogo} 
+              alt="PostMe AI" 
+              className="w-12 h-12 animate-float shadow-lg"
+            />
+            <img 
+              src={postmeText} 
+              alt="PostMe AI" 
+              // className="w-22 h-8 animate-float shadow-lg"
+              className="w-22 h-7 shadow-lg"              
+            />            
+            {/* <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent dark:bg-none dark:text-white">PostMe AI</span> */}
           </div>
           
           {/* Center Navigation */}
