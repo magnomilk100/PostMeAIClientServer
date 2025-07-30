@@ -1,40 +1,57 @@
-import { Building, Users, Globe, ArrowRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Building, Users, Globe, ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface OnboardingStep7Props {
   data: any;
   updateData: (data: any) => void;
 }
 
-export default function OnboardingStep7({ data, updateData }: OnboardingStep7Props) {
-  const handleOrganizationNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+export default function OnboardingStep7({
+  data,
+  updateData,
+}: OnboardingStep7Props) {
+  const handleOrganizationNameChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     updateData({ organizationName: e.target.value });
   };
 
-  const handleWorkspaceNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleWorkspaceNameChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     updateData({ workspaceName: e.target.value });
   };
 
   const generateOrganizationName = () => {
     const now = new Date();
-    const timestamp = now.toISOString().replace(/[-T:]/g, '').replace(/\..+/, '').slice(0, 14); // ddmmyyyyhhmmss
+    const timestamp = now
+      .toISOString()
+      .replace(/[-T:]/g, "")
+      .replace(/\..+/, "")
+      .slice(0, 14); // ddmmyyyyhhmmss
     return `MyOrg_${timestamp}`;
   };
 
   const generateWorkspaceName = () => {
-    if (data.profileType === 'individual') {
+    if (data.profileType === "individual") {
       if (data.fullName.trim()) {
-        return `${data.fullName.trim()}'s Workspace`;
+        return `${data.fullName.trim()}`;
       }
-      return "My Workspace";
+      return "My";
     } else {
       if (data.companyName.trim()) {
-        return `${data.companyName.trim()} Workspace`;
+        return `${data.companyName.trim()}`;
       }
-      return "Company Workspace";
+      return "Company";
     }
   };
 
@@ -49,9 +66,12 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
             <Building className="w-8 h-8 text-white" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold">Create Your Organization & Workspace</h2>
+        <h2 className="text-2xl font-bold">
+          Create Your Organization & Workspace
+        </h2>
         <p className="text-muted-foreground">
-          Set up your organization and workspace to manage your social media content and collaborate with your team
+          Set up your organization and workspace to manage your social media
+          content and collaborate with your team
         </p>
       </div>
 
@@ -62,7 +82,8 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
             Workspace Setup
           </CardTitle>
           <CardDescription>
-            Choose a name for your workspace that reflects your brand or organization
+            Choose a name for your workspace that reflects your brand or
+            organization
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -75,12 +96,14 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
               placeholder="Enter organization name"
               className="text-lg"
             />
-            {data.organizationName.trim() === '' && (
+            {data.organizationName.trim() === "" && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Suggestion:</span>
                 <button
                   type="button"
-                  onClick={() => updateData({ organizationName: suggestedOrgName })}
+                  onClick={() =>
+                    updateData({ organizationName: suggestedOrgName })
+                  }
                   className="text-purple-600 hover:text-purple-700 underline"
                 >
                   {suggestedOrgName}
@@ -88,7 +111,7 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
               </div>
             )}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="workspaceName">Workspace Name</Label>
             <Input
@@ -98,12 +121,14 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
               placeholder="Enter workspace name"
               className="text-lg"
             />
-            {data.workspaceName.trim() === '' && (
+            {data.workspaceName.trim() === "" && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Suggestion:</span>
                 <button
                   type="button"
-                  onClick={() => updateData({ workspaceName: suggestedWorkspaceName })}
+                  onClick={() =>
+                    updateData({ workspaceName: suggestedWorkspaceName })
+                  }
                   className="text-purple-600 hover:text-purple-700 underline"
                 >
                   {suggestedWorkspaceName}
@@ -138,8 +163,9 @@ export default function OnboardingStep7({ data, updateData }: OnboardingStep7Pro
                   You'll be the workspace administrator
                 </p>
                 <p className="text-amber-700 dark:text-amber-300 mt-1">
-                  As the first user, you'll have full administrative privileges to manage team members, 
-                  settings, and workspace configurations.
+                  As the first user, you'll have full administrative privileges
+                  to manage team members, settings, and workspace
+                  configurations.
                 </p>
               </div>
             </div>

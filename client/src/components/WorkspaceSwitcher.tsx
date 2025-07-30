@@ -46,6 +46,7 @@ interface AdminWorkspace {
 export function WorkspaceSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth(); // Get current user info
   const { organizationRole } = useOrganizationRole();
   const { hasAdminAccess } = useAdminAccess();
   const [location, setLocation] = useLocation();
@@ -56,6 +57,14 @@ export function WorkspaceSwitcher() {
     staleTime: 0, // Always consider stale to allow immediate refetch
     retry: 3,
     retryDelay: 1000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Get current user's workspace roles across the organization
+  const { data: userWorkspaceRoles = [] } = useQuery({
+    queryKey: ['/api/user/workspace-roles'],
+    staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
@@ -200,25 +209,84 @@ export function WorkspaceSwitcher() {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    console.log("🎯 DEBUG 1 - getRoleBadgeColor called with role:", role, "type:", typeof role);
-    
     // Handle undefined or null role
     if (!role) {
-      console.log("🚨 DEBUG 1a - Role is undefined/null, returning default color");
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
     
     switch (role.toLowerCase()) {
       case 'owner':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+      case 'administrator':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       case 'admin':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'creator':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'publisher':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+      case 'approver':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
+      case 'viewer':
+      case 'readonly':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
       case 'member':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'viewer':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+    }
+  };
+
+  // Get roles for current user in the current workspace following priority rules
+  const getCurrentUserWorkspaceRoles = () => {
+    if (!currentWorkspace || !userWorkspaceRoles) return [];
+
+    // Check if user is organization owner
+    const isOrgOwner = organizationRole?.role === 'owner';
+    if (isOrgOwner) {
+      return ['owner']; // Only show Owner role
+    }
+
+    // Get user's roles for the current workspace
+    const currentWorkspaceRoles = userWorkspaceRoles.filter(
+      (role: any) => role.workspaceId === currentWorkspace.id
+    );
+
+    if (currentWorkspaceRoles.length === 0) {
+      return []; // No roles in this workspace
+    }
+
+    // Check if user has administrator role
+    const hasAdministratorRole = currentWorkspaceRoles.some(
+      (role: any) => role.role === 'administrator'
+    );
+
+    if (hasAdministratorRole) {
+      return ['administrator']; // Only show Administrator role
+    }
+
+    // Return all other roles
+    return currentWorkspaceRoles.map((role: any) => role.role);
+  };
+
+  // Get the dot color for each role (for collapsed view)
+  const getRoleDotColor = (role: string) => {
+    switch (role.toLowerCase()) {
+      case 'owner':
+        return 'bg-yellow-500'; // Gold
+      case 'administrator':
+        return 'bg-red-500'; // Red
+      case 'creator':
+        return 'bg-blue-500'; // Blue
+      case 'publisher':
+        return 'bg-green-500'; // Green
+      case 'approver':
+        return 'bg-orange-500'; // Orange
+      case 'viewer':
+      case 'readonly':
+        return 'bg-gray-500'; // Gray
+      default:
+        return 'bg-gray-400'; // Default gray
     }
   };
 
@@ -249,24 +317,57 @@ export function WorkspaceSwitcher() {
     );
   }
 
+  const userDisplayRoles = getCurrentUserWorkspaceRoles();
+
   return (
     <div className="mb-4">
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="w-full justify-between h-auto p-2 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-white/70 dark:hover:bg-gray-800/70 transition-all duration-200 border-gray-200 dark:border-gray-700"
+            className="w-full justify-between h-auto p-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-white/70 dark:hover:bg-gray-800/70 transition-all duration-200 border-gray-200 dark:border-gray-700"
           >
             <div className="flex items-center space-x-2 min-w-0 flex-1">
               <div className="flex-1 min-w-0 text-left">
-                <div className="font-medium text-xs truncate text-gray-900 dark:text-white">
-                  {currentWorkspace.name}
-                </div>
-                <div className="flex items-center space-x-1 mt-0.5">
-                  {getRoleIcon(currentWorkspace.currentUserRole)}
-                  <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                    {currentWorkspace.currentUserRole}
+                {/* User Info */}
+                <div className="flex items-center space-x-1 mb-1">
+                  <User className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">User:</span>
+                  <span className="font-medium text-xs truncate text-gray-900 dark:text-white">
+                    {user?.firstName && user?.lastName 
+                      ? `${user.firstName} ${user.lastName}`
+                      : user?.email || 'Unknown User'
+                    }
                   </span>
+                </div>
+                
+                {/* Workspace Info */}
+                <div className="flex items-center space-x-1 mb-1">
+                  <Building2 className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Workspace:</span>
+                  <span className="font-medium text-xs truncate text-gray-900 dark:text-white">
+                    {currentWorkspace.name}
+                  </span>
+                </div>
+
+                {/* Role(s) Info - Using colored dots for collapsed view */}
+                <div className="flex items-center space-x-1 mt-1">
+                  <Shield className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                  <div className="flex items-center gap-1">
+                    {userDisplayRoles.length > 0 ? (
+                      userDisplayRoles.map((role, index) => (
+                        <div
+                          key={index}
+                          className={`w-2 h-2 rounded-full ${getRoleDotColor(role)}`}
+                          title={role.charAt(0).toUpperCase() + role.slice(1)} // Tooltip for accessibility
+                        />
+                      ))
+                    ) : (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                        No roles assigned
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -293,8 +394,38 @@ export function WorkspaceSwitcher() {
             </div>
           ) : workspaces && workspaces.length > 0 ? (
             workspaces.map((workspace) => {
-              console.log("🎯 DEBUG 2 - Workspace data:", workspace);
-              console.log("🎯 DEBUG 2a - workspace.currentUserRole:", workspace.currentUserRole, "type:", typeof workspace.currentUserRole);
+              // Get roles for this specific workspace following priority rules
+              const getWorkspaceDisplayRoles = () => {
+                // Check if user is organization owner
+                const isOrgOwner = organizationRole?.role === 'owner';
+                if (isOrgOwner) {
+                  return ['owner']; // Only show Owner role
+                }
+
+                // Get user's roles for this workspace
+                const workspaceRoles = userWorkspaceRoles.filter(
+                  (role: any) => role.workspaceId === workspace.id
+                );
+
+                if (workspaceRoles.length === 0) {
+                  return []; // No roles in this workspace
+                }
+
+                // Check if user has administrator role
+                const hasAdministratorRole = workspaceRoles.some(
+                  (role: any) => role.role === 'administrator'
+                );
+
+                if (hasAdministratorRole) {
+                  return ['administrator']; // Only show Administrator role
+                }
+
+                // Return all other roles
+                return workspaceRoles.map((role: any) => role.role);
+              };
+
+              const workspaceDisplayRoles = getWorkspaceDisplayRoles();
+
               return (
               <DropdownMenuItem
                 key={workspace.id}
@@ -314,13 +445,24 @@ export function WorkspaceSwitcher() {
                         <Check className="w-4 h-4 text-green-500" />
                       )}
                     </div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge 
-                        variant="secondary" 
-                        className={`text-xs px-2 py-0.5 ${getRoleBadgeColor(workspace.currentUserRole)}`}
-                      >
-                        {workspace.currentUserRole}
-                      </Badge>
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex flex-wrap gap-1">
+                        {workspaceDisplayRoles.length > 0 ? (
+                          workspaceDisplayRoles.map((role, index) => (
+                            <Badge 
+                              key={index}
+                              variant="secondary" 
+                              className={`text-xs px-1.5 py-0.5 ${getRoleBadgeColor(role)}`}
+                            >
+                              {role.charAt(0).toUpperCase() + role.slice(1)}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                            No roles
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {workspace.memberCount} member{workspace.memberCount !== 1 ? 's' : ''}
                       </span>
