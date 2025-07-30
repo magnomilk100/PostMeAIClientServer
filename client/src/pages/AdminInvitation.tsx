@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { UserPlus, Mail, Calendar, Clock, CheckCircle, XCircle, Settings, Users, RefreshCw, History, Info, AlertCircle, RotateCcw, X } from "lucide-react";
+import { useAdminAccess } from "@/hooks/useOrganizationRole";
+import { UserPlus, Mail, Calendar, Clock, CheckCircle, XCircle, Settings, Users, RefreshCw, History, Info, AlertCircle, RotateCcw, X, Shield } from "lucide-react";
 
 // Countdown Timer Component
 function CountdownTimer({ expiresAt, onExpired }: { expiresAt: string; onExpired?: () => void }) {
@@ -194,6 +195,7 @@ function getTimeRemaining(expiresAt: string) {
 
 export default function AdminInvitation() {
   const { toast } = useToast();
+  const { hasAdminAccess, isLoading: adminAccessLoading } = useAdminAccess();
   const [isLoading, setIsLoading] = useState(false);
   const [emailValidated, setEmailValidated] = useState(false);
   const [validatedEmail, setValidatedEmail] = useState("");
@@ -580,6 +582,37 @@ export default function AdminInvitation() {
       minute: "2-digit",
     });
   };
+
+  // Show loading while checking admin access
+  if (adminAccessLoading) {
+    return (
+      <div className="page-content">
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          <span className="ml-3 text-muted-foreground">Checking permissions...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Check admin access - restrict to administrators OR organization owners
+  if (!hasAdminAccess) {
+    return (
+      <div className="page-content">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Access Denied
+            </CardTitle>
+            <CardDescription>
+              You don't have permission to access this page. Administrator privileges required.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="page-content space-y-6">

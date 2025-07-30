@@ -14,6 +14,10 @@ import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
 
+import dotenv from "dotenv";
+dotenv.config();
+
+
 // Extend Express session to include invitationKey
 declare module 'express-session' {
   interface SessionData {
@@ -93,9 +97,6 @@ function getCurrentWorkspaceId(req: any): number {
 function getCurrentOrganizationId(req: any): number {
   return getCurrentContext(req).organizationId;
 }
-
-import dotenv from "dotenv";
-dotenv.config();
 
 // Helper function to check if user has admin access (organization owner OR workspace administrator)
 async function hasAdminAccess(userId: string, organizationId: number): Promise<boolean> {
@@ -263,6 +264,7 @@ function generateMockImageBase64(description: string): string {
   
   return pngBase64;
 }
+
 function generateMockContent(subject: string, platform?: string) {
   const baseTitle = "🚀 Unlock Your Creative Potential Today!";
   const baseBody = "Turn your wildest ideas into viral content that captivates your audience. Whether you're sharing insights, telling stories, or showcasing your expertise, every post is an opportunity to connect and inspire. What's your next big idea? 💡✨";
@@ -310,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to get the correct base URL
   const getBaseUrl = () => {
     if (process.env.NODE_ENV === 'production') {
-      return 'https://www.postmeai.com';
+      return 'https://postmeai.com';
     }
     if (process.env.REPLIT_DEV_DOMAIN) {
       return `https://${process.env.REPLIT_DEV_DOMAIN}`;
@@ -438,6 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Login error:", loginErr);
           return res.status(500).json({ message: "Login error" });
         }
+
         res.json({ user: req.user });
       });
     })(req, res, next);
@@ -480,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
               <h1 style="color: #e74c3c;">Invalid Verification Link</h1>
               <p>The verification link is invalid or missing.</p>
-              <a href="${process.env.POSTMEAI_FE_URL}" 
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
                  style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                 Go to PostMeAI
               </a>
@@ -498,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <h1 style="color: #e74c3c;">Verification Failed</h1>
               <p>The verification link is invalid or has expired.</p>
               <p>Please request a new verification email.</p>
-              <a href="${process.env.POSTMEAI_FE_URL}" 
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
                  style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                 Go to PostMeAI
               </a>
@@ -523,7 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <h1 style="color: #27ae60;">Email Verified Successfully!</h1>
             <p>Welcome to PostMeAI, ${user.firstName || 'User'}!</p>
             <p>Your account is now active and you can start creating amazing content.</p>
-            <a href="${process.env.POSTMEAI_FE_URL}" 
+            <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
               Start Creating Content
             </a>
@@ -537,7 +540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
             <h1 style="color: #e74c3c;">Verification Error</h1>
             <p>An error occurred during email verification.</p>
-            <a href="${process.env.POSTMEAI_FE_URL}" 
+            <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
                style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
               Go to PostMeAI
             </a>
@@ -546,6 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
     }
   });
+
   app.post("/api/auth/resend-verification", async (req, res) => {
     try {
       const { email } = req.body;
@@ -580,6 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to resend verification email" });
     }
   });
+
   // Password reset routes
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
@@ -627,6 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to process password reset request" });
     }
   });
+
   app.post("/api/auth/reset-password", async (req, res) => {
     try {
       const { token, password } = req.body;
@@ -673,21 +679,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's workspace roles
   app.get("/api/user/workspace-roles", requireAuth, async (req: any, res) => {
     try {
-
-
-
-
       const userId = req.user.id;
       const organizationId = getCurrentOrganizationId(req);
       
       const workspaceRoles = await storage.getUserWorkspaceRoles(userId, organizationId);
-      console.log("*****************************************");
-      console.log("*****************************************");
-      console.log("In /api/user/workspace-roles");
-      console.log("workspaceRoles");
-      console.log(workspaceRoles);
-      console.log("*****************************************");
-      console.log("*****************************************");
+      
       res.json(workspaceRoles || []);
     } catch (error) {
       console.error('Get workspace roles error:', error);
@@ -889,8 +885,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log('✅ ADMIN WORKSPACES ACCESS GRANTED for user:', userId);
-      const workspaces = await storage.getWorkspacesByOrganizationId(organizationId);
       
+      // Check if user is organization owner
+      const orgRole = await storage.getUserOrganization(userId, organizationId);
+      console.log('🔍 DEBUG - User:', userId, 'OrgRole:', orgRole, 'CurrentOrgId:', organizationId);
+      
+      let workspaces;
+      if (orgRole && orgRole.role === 'owner' && orgRole.isActive) {
+        console.log('🔍 Owner detected - fetching all workspaces for organization:', organizationId);
+        // Organization owners see all workspaces with their actual roles
+        const allWorkspaces = await storage.getWorkspacesByOrganizationId(organizationId);
+        
+        // Get user's detailed workspace roles for proper role calculation
+        const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, organizationId);
+        console.log('🎯 DEBUG 4 - Owner workspace roles:', userWorkspaceRoles);
+        
+        // Format response with workspace details and user's actual role
+        workspaces = await Promise.all(allWorkspaces.map(async (workspace) => {
+          console.log('🎯 DEBUG 4a - Processing workspace for owner:', { id: workspace.id, name: workspace.name });
+          const members = await storage.getWorkspaceMembers(workspace.id);
+          
+          // Find detailed roles for this specific workspace
+          const workspaceRoles = userWorkspaceRoles.filter(role => role.workspaceId === workspace.id);
+          const role = workspaceRoles.length > 0 ? workspaceRoles[0].role : 'owner';
+          console.log('🎯 DEBUG 4b - Determined role:', role, 'type:', typeof role);
+          
+          const workspaceResponse = {
+            id: workspace.id,
+            organizationId: workspace.organizationId,
+            name: workspace.name,
+            description: workspace.description,
+            uniqueId: workspace.uniqueId,
+            currentUserRole: role, // Show actual workspace role
+            memberCount: members.length,
+            activeMemberCount: members.filter(m => m.isActive).length,
+            ownerId: workspace.ownerId,
+            ownerName: workspace.ownerName || 'Unknown',
+            ownerEmail: workspace.ownerEmail || 'Unknown',
+            createdAt: workspace.createdAt,
+            updatedAt: workspace.updatedAt,
+            isActive: false // Will be set correctly by frontend
+          };
+          
+          console.log('🎯 DEBUG 4c - Final workspace response for owner:', workspaceResponse);
+          return workspaceResponse;
+        }));
+      } else {
+        console.log('🔍 Member detected - fetching only administrator workspaces for user:', userId);
+        // Members only see workspaces where they have ADMINISTRATOR role specifically
+        const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, organizationId);
+        console.log('🔍 User workspace roles for admin filter:', userWorkspaceRoles);
+        
+        // Filter to only workspaces where user has administrator role
+        const administratorWorkspaceIds = userWorkspaceRoles
+          .filter(role => {
+            let roleStr = '';
+            if (typeof role.role === 'string') {
+              roleStr = role.role;
+            } else if (role.role && typeof role.role === 'object' && role.role.name) {
+              roleStr = role.role.name;
+            }
+            return roleStr === 'administrator' && role.isActive !== false;
+          })
+          .map(role => role.workspaceId);
+        
+        console.log('🔍 Administrator workspace IDs:', administratorWorkspaceIds);
+        
+        if (administratorWorkspaceIds.length === 0) {
+          console.log('🔍 No administrator workspaces found - returning empty array');
+          workspaces = [];
+        } else {
+          // Fetch only workspaces where user is administrator
+          workspaces = await storage.getWorkspacesByIds(administratorWorkspaceIds, organizationId);
+        }
+      }
+      
+      console.log('🔍 Found workspaces:', workspaces?.length, workspaces?.map(w => ({ id: w.id, name: w.name })));
       res.json(workspaces);
     } catch (error) {
       console.error('Error fetching workspaces:', error);
@@ -1152,7 +1222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
               <h1 style="color: #e74c3c;">Invitation Not Found</h1>
               <p>The invitation link is invalid or has expired.</p>
-              <a href="${process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000'}" 
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
                  style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                 Go to PostMeAI
               </a>
@@ -1169,7 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
               <h1 style="color: #e74c3c;">Invitation Expired</h1>
               <p>This invitation has expired. Please contact your administrator for a new invitation.</p>
-              <a href="${process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000'}" 
+              <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
                  style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                 Go to PostMeAI
               </a>
@@ -1179,7 +1249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Redirect to frontend invitation page
-      const baseUrl = process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000';
+      const baseUrl = process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000';
       res.redirect(`${baseUrl}/invitation/${key}`);
     } catch (error) {
       console.error('Join invitation error:', error);
@@ -1188,7 +1258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
             <h1 style="color: #e74c3c;">Error</h1>
             <p>An error occurred while processing your invitation.</p>
-            <a href="${process.env.NODE_ENV === 'production' ? 'https://www.postmeai.com' : 'http://localhost:5000'}" 
+            <a href="${process.env.NODE_ENV === 'production' ? 'https://postmeai.com' : 'http://localhost:5000'}" 
                style="background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
               Go to PostMeAI
             </a>
@@ -1455,61 +1525,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OAuth routes
-  app.get("/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
-  app.get("/auth/facebook/callback", passport.authenticate("facebook", { failureRedirect: "/login" }), (req, res) => {
+  app.get("/auth/facebook", (req, res, next) => {
+    // Store invitation key in session if provided
+    if (req.query.invitationKey) {
+      req.session.invitationKey = req.query.invitationKey as string;
+    }
+    passport.authenticate("facebook", { scope: ["email"] })(req, res, next);
+  });
+  app.get("/auth/facebook/callback", passport.authenticate("facebook", { failureRedirect: "/login" }), async (req, res) => {
+    // Handle invitation acceptance if invitation key exists
+    if (req.session.invitationKey && req.user) {
+      try {
+        const invitation = await storage.getUserInvitationByKey(req.session.invitationKey);
+        if (invitation && invitation.status === 'pending') {
+          // Update invitation with OAuth user
+          await storage.updateUserInvitation(invitation.id, {
+            status: 'password_set',
+            passwordSetAt: new Date(),
+            userId: (req.user as any).id,
+          });
+          
+          // Clear the invitation key from session
+          delete req.session.invitationKey;
+        }
+      } catch (error) {
+        console.error('Error handling OAuth invitation:', error);
+      }
+    }
     res.redirect("/");
   });
 
-  app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+  app.get("/auth/google", (req, res, next) => {
+    // Store invitation key in session if provided
+    if (req.query.invitationKey) {
+      req.session.invitationKey = req.query.invitationKey as string;
+    }
+    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+  });
   app.get("/auth/google/callback", (req, res, next) => {
     console.log("Google OAuth callback hit with query:", req.query);
-    passport.authenticate("google", { failureRedirect: "/login" })(req, res, (err) => {
+    passport.authenticate("google", { failureRedirect: "/login" })(req, res, async (err) => {
       if (err) {
         console.error("Google OAuth error:", err);
         return res.redirect("/login?error=oauth_failed");
       }
       console.log("Google OAuth success, user:", req.user);
+      
+      // Handle invitation acceptance if invitation key exists
+      if (req.session.invitationKey && req.user) {
+        try {
+          const invitation = await storage.getUserInvitationByKey(req.session.invitationKey);
+          if (invitation && invitation.status === 'pending') {
+            // Update invitation with OAuth user
+            await storage.updateUserInvitation(invitation.id, {
+              status: 'password_set',
+              passwordSetAt: new Date(),
+              userId: (req.user as any).id,
+            });
+            
+            // Clear the invitation key from session
+            delete req.session.invitationKey;
+          }
+        } catch (error) {
+          console.error('Error handling OAuth invitation:', error);
+        }
+      }
+      
       res.redirect("/");
     });
   });
 
-
-// kick off the flow from CHAT GPT
-  // OAuth endpoints
-// — Kick off LinkedIn —
-app.get("/auth/linkedin", passport.authenticate("linkedin-oidc"));
-
-// — Custom callback so we can log err/user/info —
-  // — Custom LinkedIn callback (only one!) —
-// kick off the flow
-//app.get("/auth/linkedin", passport.authenticate("linkedin-oidc"));
-
-// callback
-app.get(
-  "/auth/linkedin/callback",
-  passport.authenticate("linkedin-oidc", {
-    failureRedirect: "/login",
-    session: true,
-  }),
-  (req, res) => {
-    const url = process.env.FRONTEND_URL || "http://localhost:5000";
-    res.send(`
-      <html><body>
-      <script>
-        if (window.opener) {
-          window.opener.location.href = "${url}";
-          window.close();
-        } else {
-          window.location.href = "${url}";
-        }
-      </script>
-      </body></html>
-    `);
-  }
-);
-  /*
-  app.get("/auth/linkedin", passport.authenticate("linkedin", { scope: ["openid", "profile", "email"] }));
-  //app.get("/auth/linkedin", passport.authenticate("linkedin", { scope: ["r_liteprofile", "r_emailaddress"] }));
+  app.get("/auth/linkedin", (req, res, next) => {
+    // Store invitation key in session if provided
+    if (req.query.invitationKey) {
+      req.session.invitationKey = req.query.invitationKey as string;
+    }
+    passport.authenticate("linkedin", { scope: ["openid", "profile", "email"] })(req, res, next);
+  });
   app.get("/auth/linkedin/callback", (req, res, next) => {
     console.log("LinkedIn OAuth callback hit with query:", req.query);
     passport.authenticate("linkedin", { failureRedirect: "/login" })(req, res, async (err) => {
@@ -1556,8 +1648,6 @@ app.get(
       `);
     });
   });
-*/
-
 
   app.get("/auth/github", passport.authenticate("github", { scope: ["user:email"] }));
   app.get("/auth/github/callback", passport.authenticate("github", { failureRedirect: "/login" }), (req, res) => {
@@ -1643,6 +1733,7 @@ app.get(
       res.status(500).json({ message: "Failed to generate AI image", error: error.message });
     }
   });
+
   // Create a new post (protected)
   app.post("/api/posts", requireAuth, async (req, res) => {
     try {
@@ -2242,6 +2333,7 @@ app.get(
       res.status(500).json({ message: 'Failed to upload image' });
     }
   });
+
   app.post('/api/images', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -2405,6 +2497,7 @@ app.get(
       });
     }
   });
+
   // Social Media Configuration routes
   app.get('/api/social-media-configs', requireAuth, async (req: any, res) => {
     try {
@@ -2698,8 +2791,10 @@ app.get(
       `scope=pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish&` +
       `response_type=code&` +
       `state=${req.user?.id || 'anonymous'}`;
+
     res.redirect(facebookAuthUrl);
   });
+
   app.get('/auth/facebook/api-key/callback', async (req, res) => {
     try {
       const { code, state } = req.query;
@@ -2719,12 +2814,14 @@ app.get(
           </html>
         `);
       }
+
       // Exchange code for access token
       const tokenResponse = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?` +
         `client_id=${process.env.FACEBOOK_APP_ID}&` +
         `client_secret=${process.env.FACEBOOK_APP_SECRET}&` +
-        `redirect_uri=${encodeURIComponent(process.env.POSTMEAI_FE_URL + '/auth/facebook/api-key/callback')}&` +
+        `redirect_uri=${encodeURIComponent(process.env.NODE_ENV === 'production' ? 'https://postmeai.com/auth/facebook/api-key/callback' : 'http://localhost:5000/auth/facebook/api-key/callback')}&` +
         `code=${code}`);
+
       const tokenData = await tokenResponse.json();
       
       if (tokenData.error) {
@@ -2742,12 +2839,14 @@ app.get(
           </html>
         `);
       }
+
       const accessToken = tokenData.access_token;
       
       // Store the access token temporarily in session for retrieval
       if (req.session) {
         req.session.facebookApiKey = accessToken;
       }
+
       // Send success message to parent window
       res.send(`
         <html>
@@ -2779,6 +2878,7 @@ app.get(
       `);
     }
   });
+
   // API endpoint to retrieve Facebook OAuth result
   app.get('/api/facebook-oauth-result', (req, res) => {
     if (req.session?.facebookApiKey) {
@@ -2789,16 +2889,24 @@ app.get(
       res.status(404).json({ message: 'No Facebook API key found' });
     }
   });
+
   // LinkedIn OAuth2 for API Key retrieval
   app.get('/auth/linkedin/api-key', (req, res) => {
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://postmeai.com' 
+      : 'https://4f04f90a-e454-4abd-a22c-6683c4071a1c-00-2psprzejqlsdp.kirk.replit.dev';
+    const redirectUri = `${baseUrl}/auth/linkedin/api-key/callback`;
+    
     const linkedinAuthUrl = `https://www.linkedin.com/oauth/v2/authorization?` +
       `response_type=code&` +
       `client_id=${process.env.LINKEDIN_CLIENT_ID}&` +
-      `redirect_uri=${encodeURIComponent(process.env.POSTMEAI_FE_URL + '/auth/linkedin/api-key/callback')}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `scope=openid%20profile%20email%20w_member_social&` +
       `state=${req.user?.id || 'anonymous'}`;
+
     res.redirect(linkedinAuthUrl);
   });
+
   app.get('/auth/linkedin/api-key/callback', async (req, res) => {
     try {
       const { code, state } = req.query;
@@ -2818,6 +2926,7 @@ app.get(
           </html>
         `);
       }
+
       // Exchange code for access token
       const tokenResponse = await fetch(`https://www.linkedin.com/oauth/v2/accessToken`, {
         method: 'POST',
@@ -2829,9 +2938,10 @@ app.get(
           code: code as string,
           client_id: process.env.LINKEDIN_CLIENT_ID!,
           client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
-          redirect_uri: process.env.POSTMEAI_FE_URL + '/auth/linkedin/api-key/callback'
+          redirect_uri: process.env.NODE_ENV === 'production' ? 'https://postmeai.com/auth/linkedin/api-key/callback' : 'https://4f04f90a-e454-4abd-a22c-6683c4071a1c-00-2psprzejqlsdp.kirk.replit.dev/auth/linkedin/api-key/callback'
         })
       });
+
       const tokenData = await tokenResponse.json();
       
       if (tokenData.error) {
@@ -2849,12 +2959,14 @@ app.get(
           </html>
         `);
       }
+
       const accessToken = tokenData.access_token;
       
       // Store the access token temporarily in session for retrieval
       if (req.session) {
         req.session.linkedinApiKey = accessToken;
       }
+
       // Send success message to parent window
       res.send(`
         <html>
@@ -2886,6 +2998,7 @@ app.get(
       `);
     }
   });
+
   // API endpoint to retrieve LinkedIn OAuth result
   app.get('/api/linkedin-oauth-result', (req, res) => {
     if (req.session?.linkedinApiKey) {
@@ -2959,7 +3072,6 @@ app.get(
 
   app.post('/api/organization/switch', requireAuth, async (req: any, res) => {
     try {
-
       const userId = req.user.id;
       const { organizationId } = req.body;
       
@@ -3013,9 +3125,22 @@ app.get(
       // Get workspace members
       const members = await storage.getWorkspaceMembers(workspaceId);
       
-      // Get current user's role in this workspace
-      const currentUserMembership = members.find(member => member.userId === userId);
-      const currentUserRole = currentUserMembership ? currentUserMembership.role : 'member';
+      // Get user's organization role to determine proper fallback
+      const userOrganizations = await storage.getUserOrganizations(userId);
+      const userOrgRole = userOrganizations.find(uo => uo.organizationId === user.currentOrganizationId);
+      console.log('🎯 DEBUG CURRENT WS - userOrgRole:', userOrgRole);
+      
+      // Get current user's detailed workspace roles - same method as /api/workspaces  
+      const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, user.currentOrganizationId);
+      console.log('🎯 DEBUG CURRENT WS - userWorkspaceRoles:', userWorkspaceRoles);
+      
+      // Find roles for this specific workspace
+      const workspaceRoles = userWorkspaceRoles.filter(role => role.workspaceId === workspaceId);
+      
+      // Use 'owner' fallback for organization owners, 'member' for others
+      const fallbackRole = (userOrgRole && userOrgRole.role === 'owner') ? 'owner' : 'member';
+      const currentUserRole = workspaceRoles.length > 0 ? workspaceRoles[0].role : fallbackRole;
+      console.log('🎯 DEBUG CURRENT WS - determined role:', currentUserRole, 'fallback used:', fallbackRole, 'type:', typeof currentUserRole);
       
       // Format response
       const workspaceInfo = {
@@ -3066,14 +3191,19 @@ app.get(
         const allWorkspaces = await storage.getWorkspacesByOrganizationId(user.currentOrganizationId);
         console.log('🔍 Found workspaces:', allWorkspaces.length, allWorkspaces.map(w => ({ id: w.id, name: w.name })));
         
-        // Format response with workspace details and user's role (or 'owner' if not a member)
+        // Get user's detailed workspace roles for proper role calculation
+        const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, user.currentOrganizationId);
+        console.log('🎯 DEBUG 4 - Owner workspace roles:', userWorkspaceRoles);
+        
+        // Format response with workspace details and user's actual detailed role
         workspaces = await Promise.all(allWorkspaces.map(async (workspace) => {
+          console.log('🎯 DEBUG 4a - Processing workspace for owner:', { id: workspace.id, name: workspace.name });
           const members = await storage.getWorkspaceMembers(workspace.id);
           
-          // Check if user is a member of this workspace
-          const userWorkspace = await storage.getUserWorkspaceByIds(userId, workspace.id);
-          
-          const role = userWorkspace ? userWorkspace.role : 'owner';
+          // Find detailed roles for this specific workspace
+          const workspaceRoles = userWorkspaceRoles.filter(role => role.workspaceId === workspace.id);
+          const role = workspaceRoles.length > 0 ? workspaceRoles[0].role : 'owner';
+          console.log('🎯 DEBUG 4b - Determined role:', role, 'type:', typeof role);
           
           const workspaceResponse = {
             id: workspace.id,
@@ -3085,7 +3215,8 @@ app.get(
             createdAt: workspace.createdAt,
             isActive: workspace.id === user.currentWorkspaceId
           };
-
+          
+          console.log('🎯 DEBUG 4c - Final workspace response for owner:', workspaceResponse);
           return workspaceResponse;
         }));
       } else {
@@ -3094,28 +3225,42 @@ app.get(
         const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, user.currentOrganizationId);
         console.log('🔍 User workspace roles found:', userWorkspaceRoles);
         
-       // Group roles by workspace to avoid duplicates (user may have multiple roles in same workspace)
-       const workspaceRoleMap = new Map();
-       userWorkspaceRoles.forEach(roleAssignment => {
-         const workspaceId = roleAssignment.workspaceId;
-         if (!workspaceRoleMap.has(workspaceId)) {
-           workspaceRoleMap.set(workspaceId, []);
-         }
-         workspaceRoleMap.get(workspaceId).push(roleAssignment.role);
-
+        // Group roles by workspace to avoid duplicates (user may have multiple roles in same workspace)
+        const workspaceRoleMap = new Map();
+        userWorkspaceRoles.forEach(roleAssignment => {
+          const workspaceId = roleAssignment.workspaceId;
+          if (!workspaceRoleMap.has(workspaceId)) {
+            workspaceRoleMap.set(workspaceId, []);
+          }
+          workspaceRoleMap.get(workspaceId).push(roleAssignment.role);
+        });
+        
+        console.log('🔍 Deduplicated workspace roles map:', Array.from(workspaceRoleMap.entries()));
+        
+        // Format response with workspace details and user's primary role (first role)
+        const uniqueWorkspaceIds = Array.from(workspaceRoleMap.keys());
+        workspaces = await Promise.all(uniqueWorkspaceIds.map(async (workspaceId) => {
+          console.log('🎯 DEBUG 3 - Processing workspace ID:', workspaceId);
+          const workspace = await storage.getWorkspace(workspaceId);
+          const members = await storage.getWorkspaceMembers(workspaceId);
+          const userRoles = workspaceRoleMap.get(workspaceId);
+          const primaryRole = userRoles[0]; // Use first role as primary
+          
+          console.log('🎯 DEBUG 3a - Workspace:', workspace ? { id: workspace.id, name: workspace.name } : 'null');
+          console.log('🎯 DEBUG 3b - User roles in workspace:', userRoles, 'primary role:', primaryRole);
+          
           const workspaceResponse = {
             id: workspace.id,
             name: workspace.name,
             description: workspace.description,
             uniqueId: workspace.uniqueId,
-            currentUserRole: roleAssignment.role,
-            //currentUserRole: roleAssignment.roleId,
-            //currentUserRole: "administrator",
+            currentUserRole: primaryRole,
             memberCount: members.length,
             createdAt: workspace.createdAt,
             isActive: workspace.id === user.currentWorkspaceId
           };
           
+          console.log('🎯 DEBUG 3c - Final workspace response:', workspaceResponse);
           return workspaceResponse;
         }));
         console.log('🔍 Final workspaces for non-owner:', workspaces.map(w => ({ id: w.id, name: w.name, role: w.currentUserRole })));
@@ -3127,7 +3272,6 @@ app.get(
       res.status(500).json({ message: 'Failed to fetch workspaces' });
     }
   });
-
 
   // Switch workspace
   app.post('/api/workspace/switch', requireAuth, async (req: any, res) => {
@@ -3186,6 +3330,7 @@ app.get(
       res.status(500).json({ message: "Failed to fetch user data summary" });
     }
   });
+
   app.delete('/api/user/delete-account', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -3319,12 +3464,14 @@ app.get(
       res.status(500).json({ message: 'Failed to reset onboarding' });
     }
   });
+
   // Enhanced Facebook API key validation
   app.post('/api/social-media-configs/:platformId/test', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { platformId } = req.params;
       const { apiKey } = req.body;
+
       console.log(`Testing ${platformId} connection for user ${userId}`);
       
       if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length === 0) {
@@ -3336,8 +3483,10 @@ app.get(
           status: 'failed'
         });
       }
+
       // Set testing status
       await storage.updateSocialMediaConfigTestStatus(userId, platformId, 'testing');
+
       let testResult = { success: false, error: 'Platform not supported' };
       
       // Enhanced Facebook API validation
@@ -3390,6 +3539,7 @@ app.get(
           testResult = { success: false, error: 'Invalid API key format' };
         }
       }
+
       // Update test status in database and save API key
       const workspaceId = getCurrentWorkspaceId(req);
       if (testResult.success) {
@@ -3422,6 +3572,7 @@ app.get(
       res.status(500).json({ message: "Connection test failed" });
     }
   });
+
   // Notifications API endpoints
   app.get('/api/notifications', requireAuth, async (req: any, res) => {
     try {
@@ -3907,13 +4058,16 @@ app.get(
         return res.status(400).json({ message: 'No organization context available' });
       }
       
-      // Check if user is organization owner
+      // Check if user has admin access (organization owners OR workspace administrators)
+      const hasAccess = await hasAdminAccess(userId, user.currentOrganizationId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Admin privileges required to access organization members' });
+      }
+      
+      // Get organization role for additional context
       const userOrganizations = await storage.getUserOrganizations(userId);
       const userOrgRole = userOrganizations.find(uo => uo.organizationId === user.currentOrganizationId);
-      
-      if (!userOrgRole || userOrgRole.role !== 'owner') {
-        return res.status(403).json({ message: 'Only organization owners can access all organization members' });
-      }
       
       // Get all members from the organization
       const organizationMembers = await storage.getOrganizationMembers(user.currentOrganizationId);
@@ -3926,16 +4080,25 @@ app.get(
       const membersWithInfo = await Promise.all(organizationMembers.map(async (member) => {
         const user = await storage.getUser(member.userId);
         
-        // Get workspace role for CURRENT workspace only
+        // Get workspace role for CURRENT workspace only - use detailed role lookup
         let currentWorkspaceRole = null;
         if (currentWorkspaceId) {
-          const userWorkspaces = await storage.getUserWorkspaces(member.userId);
-          const currentWorkspace = userWorkspaces.find(uw => uw.workspaceId === currentWorkspaceId);
-          if (currentWorkspace) {
+          // Get user's organization role to determine proper fallback
+          const memberOrgRole = organizationMembers.find(om => om.userId === member.userId);
+          
+          // Get detailed workspace roles for this user
+          const userWorkspaceRoles = await storage.getUserWorkspaceRoles(member.userId, currentUser.currentOrganizationId);
+          const workspaceRoles = userWorkspaceRoles.filter(role => role.workspaceId === currentWorkspaceId);
+          
+          // Use 'owner' fallback for organization owners, 'member' for others  
+          const fallbackRole = (memberOrgRole && memberOrgRole.role === 'owner') ? 'owner' : null;
+          const role = workspaceRoles.length > 0 ? workspaceRoles[0].role : fallbackRole;
+          
+          if (role) {
             currentWorkspaceRole = {
-              workspaceId: currentWorkspace.workspaceId,
-              role: currentWorkspace.role,
-              workspaceName: currentWorkspace.workspaceName || `Workspace ${currentWorkspace.workspaceId}`
+              workspaceId: currentWorkspaceId,
+              role: role,
+              workspaceName: `Workspace ${currentWorkspaceId}`
             };
           }
         }
@@ -3960,6 +4123,84 @@ app.get(
     } catch (error: any) {
       console.error('Error fetching organization members:', error);
       res.status(500).json({ message: 'Failed to fetch organization members' });
+    }
+  });
+
+  // Admin: Get user details with all workspace roles
+  app.get('/api/admin/user-details/:userId', requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const currentUserId = req.user.id;
+      const currentUser = await storage.getUser(currentUserId);
+      
+      if (!currentUser || !currentUser.currentOrganizationId) {
+        return res.status(400).json({ message: 'No organization context available' });
+      }
+      
+      // Check if current user has admin access
+      const hasAccess = await hasAdminAccess(currentUserId, currentUser.currentOrganizationId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: 'Admin privileges required to view user details' });
+      }
+      
+      // Get the target user
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Get all workspaces in the organization
+      const allWorkspaces = await storage.getWorkspacesByOrganizationId(currentUser.currentOrganizationId);
+      
+      // Get user's workspace roles across all workspaces in the organization
+      const userWorkspaceRoles = await storage.getUserWorkspaceRoles(userId, currentUser.currentOrganizationId);
+      
+      // Get user's organization role
+      const userOrgRole = await storage.getUserOrganization(userId, currentUser.currentOrganizationId);
+      
+      // Create workspace details with roles
+      const workspaceDetails = allWorkspaces.map(workspace => {
+        // Get roles for this specific workspace
+        const workspaceRoles = userWorkspaceRoles.filter(role => role.workspaceId === workspace.id);
+        
+        // If user is organization owner, they have owner access to all workspaces
+        const isOrgOwner = userOrgRole && userOrgRole.role === 'owner';
+        
+        let role = 'No Role';
+        if (isOrgOwner) {
+          role = 'Owner';
+        } else if (workspaceRoles.length > 0) {
+          // Get the primary role (first one) or format multiple roles
+          role = workspaceRoles.map(wr => {
+            // Capitalize first letter and format role name
+            const roleName = wr.role;
+            return roleName.charAt(0).toUpperCase() + roleName.slice(1);
+          }).join(', ');
+        }
+        
+        return {
+          workspaceId: workspace.id,
+          workspaceName: workspace.name,
+          role: role,
+          hasAccess: isOrgOwner || workspaceRoles.length > 0
+        };
+      });
+      
+      const userDetails = {
+        id: targetUser.id,
+        email: targetUser.email,
+        firstName: targetUser.firstName,
+        lastName: targetUser.lastName,
+        fullName: `${targetUser.firstName} ${targetUser.lastName}`,
+        organizationRole: userOrgRole?.role || 'member',
+        workspaces: workspaceDetails
+      };
+      
+      res.json(userDetails);
+    } catch (error: any) {
+      console.error('Error fetching user details:', error);
+      res.status(500).json({ message: 'Failed to fetch user details' });
     }
   });
 

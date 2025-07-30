@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useOrganizationRole";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Users, UserCheck, UserX, Shield, Edit, Trash2, Mail, Calendar, Activity, AlertTriangle, Crown, Settings, Plus, Minus, UserPlus, Search, X, Building, Filter, ChevronDown } from "lucide-react";
+import { Users, UserCheck, UserX, Shield, Edit, Trash2, Mail, Calendar, Activity, AlertTriangle, Crown, Settings, Plus, Minus, UserPlus, Search, X, Building, Filter, ChevronDown, Eye } from "lucide-react";
 import { ComponentLoading } from "@/components/ui/loading";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
@@ -63,15 +64,34 @@ interface UserWorkspaceRole {
   role?: WorkspaceRole;
 }
 
+interface UserDetails {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  organizationRole: string;
+  workspaces: WorkspaceDetails[];
+}
+
+interface WorkspaceDetails {
+  workspaceId: number;
+  workspaceName: string;
+  role: string;
+  hasAccess: boolean;
+}
+
 export default function AdminUserManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { hasAdminAccess, isLoading: adminAccessLoading } = useAdminAccess();
+  const { hasAdminAccess, isLoading: adminAccessLoading, isOrganizationOwner } = useAdminAccess();
   
   const [removingUser, setRemovingUser] = useState<User | null>(null);
   const [showWorkspaceRoleDialog, setShowWorkspaceRoleDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showUserDetailsModal, setShowUserDetailsModal] = useState(false);
+  const [userDetailsUser, setUserDetailsUser] = useState<User | null>(null);
   
   // Delete user states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -129,15 +149,27 @@ export default function AdminUserManagement() {
         
         case 'owners':
           // Only organization owners
-          return isOrganizationOwner(member.id);
+          return isUserOrganizationOwner(member.id);
         
         default:
           return true;
       }
     });
     
-    console.log('🔍 Filter Result - Filtered Count:', filtered.length, 'FilterType:', filterType);
-    return filtered;
+    // Sort the filtered users to put current user at the top
+    const sortedFiltered = filtered.sort((a: User, b: User) => {
+      // Current user always comes first
+      if (a.id === user?.id) return -1;
+      if (b.id === user?.id) return 1;
+      
+      // For other users, maintain alphabetical order by name
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+    
+    console.log('🔍 Filter Result - Filtered Count:', sortedFiltered.length, 'FilterType:', filterType);
+    return sortedFiltered;
   };
 
   // Reset filters
@@ -156,30 +188,36 @@ export default function AdminUserManagement() {
     );
   };
 
-  // Fetch organization info first to determine if user is org owner
-  const { data: organizationInfo, isLoading: orgLoading } = useQuery({
-    queryKey: ['/api/admin/organization/members'],
-    enabled: hasAdminAccess,
-  });
+  // Use the organization owner status from the hook
+  const isCurrentUserOrgOwner = isOrganizationOwner;
 
-  // Helper function to check if user is organization owner
-  const isOrganizationOwner = (userId: string) => {
-    // organizationInfo now contains the array of organization members directly
-    const members = (organizationInfo as any) || [];
-    // Check both possible structures: organizationRole or role field
-    const isOwner = members.some((member: any) => 
+  // Helper function to check if any user is organization owner (based on fetched data)
+  const isUserOrganizationOwner = (userId: string) => {
+    if (!users) return false;
+    // users array contains organization members with role field for organization owners
+    const userArray = users as any[];
+    return userArray.some((member: any) => 
       member.id === userId && (member.organizationRole === 'owner' || member.role === 'owner')
     );
-    console.log(`🔍 isOrganizationOwner check for ${userId}:`, isOwner, 'Organization members:', members, 'Looking for userId:', userId);
-    return isOwner;
   };
 
-  // Determine if current user is organization owner
-  const isCurrentUserOrgOwner = user && isOrganizationOwner(user.id);
+  // Helper function to check if a user has administrator role in current workspace
+  const hasUserAdministratorRoleInCurrentWorkspace = (userId: string) => {
+    if (!userWorkspaceRoles || !(user as any)?.currentWorkspaceId) return false;
+    
+    const userRoles = userWorkspaceRoles.filter((role: any) => 
+      role.userId === userId && role.workspaceId === (user as any).currentWorkspaceId
+    );
+    
+    return userRoles.some((role: any) => {
+      const roleDetails = (workspaceRoles as any[]).find((wr: any) => wr.id === role.roleId);
+      return roleDetails?.name === 'administrator';
+    });
+  };
 
-  // Fetch users based on organization role
+  // Always try organization members first (admin access allows both owners and workspace administrators)
   const { data: users, isLoading } = useQuery({
-    queryKey: isCurrentUserOrgOwner ? ['/api/admin/organization/members'] : ['/api/admin/workspace/members'],
+    queryKey: ['/api/admin/organization/members'],
     enabled: hasAdminAccess,
     staleTime: 0, // Force fresh data
     refetchOnMount: true,
@@ -218,12 +256,21 @@ export default function AdminUserManagement() {
     enabled: !!(user as any)?.currentWorkspaceId && hasAdminAccess,
   });
 
+  // Fetch user details (all workspace roles) for the selected user
+  const { data: userDetailsData, isLoading: userDetailsLoading } = useQuery({
+    queryKey: ['/api/admin/user-details', userDetailsUser?.id],
+    queryFn: () => fetch(`/api/admin/user-details/${userDetailsUser?.id}`, {
+      credentials: 'include'
+    }).then(res => res.json()),
+    enabled: !!userDetailsUser?.id && hasAdminAccess,
+  });
+
 
 
   // Helper function to check current user's organization role
   const getCurrentUserOrganizationRole = () => {
     // Check if current user is in organization members as owner
-    if (user && isOrganizationOwner(user.id)) {
+    if (user && isCurrentUserOrgOwner) {
       return 'owner';
     }
     return 'member';
@@ -456,14 +503,23 @@ export default function AdminUserManagement() {
   const hasAnyActionsAvailable = () => {
     if (!users) return false;
     
-    // Check if current user is organization owner and if there are any users they can remove
-    if (getCurrentUserOrganizationRole() === 'owner') {
+    // Only show actions if user can manage roles (either org owner or workspace admin)
+    if (canManageRoles()) {
+      // Check if there are any users we can take actions on
       return (users as User[]).some((member: User) => 
-        member.id !== user?.id && !isOrganizationOwner(member.id)
+        member.id !== user?.id && 
+        !isUserOrganizationOwner(member.id) && 
+        !hasUserAdministratorRoleInCurrentWorkspace(member.id)
       );
     }
     
     return false;
+  };
+
+  // Handle viewing user details
+  const handleViewUserDetails = (member: User) => {
+    setUserDetailsUser(member);
+    setShowUserDetailsModal(true);
   };
 
   // Show loading while checking admin access
@@ -735,14 +791,26 @@ export default function AdminUserManagement() {
                     <TableRow key={member.id} className="transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:shadow-md hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer">
                       <TableCell>
                         <div className="flex flex-col">
-                          <div className="font-medium">{member.firstName} {member.lastName}</div>
-                          <div className="text-sm text-muted-foreground">{member.email}</div>
+                          {member.id === user?.id ? (
+                            <Link href="/settings" className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline transition-colors duration-200 cursor-pointer">
+                              {member.firstName} {member.lastName}
+                            </Link>
+                          ) : (
+                            <div className="font-medium">{member.firstName} {member.lastName}</div>
+                          )}
+                          {member.id === user?.id ? (
+                            <Link href="/settings" className="text-sm text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200 cursor-pointer">
+                              {member.email}
+                            </Link>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">{member.email}</div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {/* Organization Owner Badge with Crown */}
-                          {isOrganizationOwner(member.id) && (
+                          {isUserOrganizationOwner(member.id) && (
                             <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white w-fit">
                               <Crown className="h-3 w-3 mr-1" />
                               Organization Owner
@@ -809,47 +877,52 @@ export default function AdminUserManagement() {
                           <span className="text-muted-foreground">Never</span>
                         )}
                       </TableCell>
-                      {hasAnyActionsAvailable() && (
-                        <TableCell>
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                            {/* Add Role Button - Only show if user can manage roles */}
-                            {canManageRoles() && (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedUser(member);
-                                  setShowWorkspaceRoleDialog(true);
-                                }}
-                                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Add Role
-                              </Button>
-                            )}
-                            {member.id !== user?.id && getCurrentUserOrganizationRole() === 'owner' && !isOrganizationOwner(member.id) && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleDeleteUser(member)}
-                                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Delete
-                              </Button>
-                            )}
-                            {member.id !== user?.id && getCurrentUserOrganizationRole() === 'owner' && isOrganizationOwner(member.id) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={true}
-                                title="Cannot delete organization owners"
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Delete
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          {/* View Details Button - Show for all users */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewUserDetails(member)}
+                            className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 shadow-sm hover:shadow-md transition-all duration-200"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View Details
+                          </Button>
+                          
+                          {/* Add Role Button - Show based on specific rules */}
+                          {canManageRoles() && 
+                           member.id !== user?.id && 
+                           !isUserOrganizationOwner(member.id) && 
+                           !hasUserAdministratorRoleInCurrentWorkspace(member.id) && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(member);
+                                setShowWorkspaceRoleDialog(true);
+                              }}
+                              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add Role
+                            </Button>
+                          )}
+                          {/* Delete Button - Show based on specific rules */}
+                          {canManageRoles() && 
+                           member.id !== user?.id && 
+                           !isUserOrganizationOwner(member.id) && 
+                           !hasUserAdministratorRoleInCurrentWorkspace(member.id) && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleDeleteUser(member)}
+                              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                     ))
                   )}
@@ -1091,6 +1164,139 @@ export default function AdminUserManagement() {
         </DialogContent>
       </Dialog>
       )}
+
+      {/* User Details Modal */}
+      <Dialog open={showUserDetailsModal} onOpenChange={setShowUserDetailsModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-500" />
+              User Details - {userDetailsUser?.email || userDetailsUser?.firstName + ' ' + userDetailsUser?.lastName}
+            </DialogTitle>
+            <DialogDescription>
+              Comprehensive workspace roles and permissions for this user across all workspaces
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {userDetailsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <ComponentLoading text="Loading user details..." />
+              </div>
+            ) : userDetailsData ? (
+              <>
+                {/* User Basic Information */}
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">User Information</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Full Name:</span>
+                      <div className="text-gray-900 dark:text-gray-100">{userDetailsData.fullName}</div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Email:</span>
+                      <div className="text-gray-900 dark:text-gray-100">{userDetailsData.email}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Organization Role:</span>
+                    <div className="mt-1">
+                      <Badge className={`${userDetailsData.organizationRole === 'owner' ? 'bg-yellow-500' : 'bg-blue-500'} text-white`}>
+                        {userDetailsData.organizationRole === 'owner' ? 'Organization Owner' : 'Member'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Workspace Roles */}
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Building className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <Label className="text-lg font-medium text-gray-900 dark:text-gray-100">Workspace Roles</Label>
+                  </div>
+                  
+                  {userDetailsData.workspaces && userDetailsData.workspaces.length > 0 ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50 dark:bg-gray-800">
+                            <TableHead className="font-medium">Workspace</TableHead>
+                            <TableHead className="font-medium">Role</TableHead>
+                            <TableHead className="font-medium">Access Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {userDetailsData.workspaces.map((workspace: WorkspaceDetails) => (
+                            <TableRow key={workspace.workspaceId} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              <TableCell>
+                                <div className="font-medium text-gray-900 dark:text-gray-100">
+                                  {workspace.workspaceName}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  ID: {workspace.workspaceId}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  className={`${
+                                    workspace.role === 'Owner' ? 'bg-yellow-500' :
+                                    workspace.role === 'Administrator' ? 'bg-red-500' :
+                                    workspace.role === 'Publisher' ? 'bg-green-500' :
+                                    workspace.role === 'Creator' ? 'bg-blue-500' :
+                                    workspace.role === 'Readonly' ? 'bg-gray-500' :
+                                    workspace.role === 'No Role' ? 'bg-gray-300 text-gray-700' :
+                                    'bg-purple-500'
+                                  } text-white`}
+                                >
+                                  {workspace.role}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={workspace.hasAccess ? "default" : "secondary"}
+                                  className={workspace.hasAccess ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"}
+                                >
+                                  {workspace.hasAccess ? "Has Access" : "No Access"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Building className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                      <p>No workspace information available</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Eye className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p>Failed to load user details</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-4">
+            <Button
+              onClick={() => {
+                setShowUserDetailsModal(false);
+                setUserDetailsUser(null);
+              }}
+              variant="outline"
+              className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

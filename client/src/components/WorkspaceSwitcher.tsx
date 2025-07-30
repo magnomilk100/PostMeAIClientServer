@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, Building2, Check, Users, Crown, Shield, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { useOrganizationRole } from "@/hooks/useOrganizationRole";
+import { useOrganizationRole, useAdminAccess } from "@/hooks/useOrganizationRole";
 
 interface Workspace {
   id: number;
@@ -39,12 +40,15 @@ interface AdminWorkspace {
   ownerId: string | null;
   ownerName: string;
   ownerEmail: string;
+  currentUserRole: string;
 }
 
 export function WorkspaceSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
   const { organizationRole } = useOrganizationRole();
+  const { hasAdminAccess } = useAdminAccess();
+  const [location, setLocation] = useLocation();
   
   // Get current workspace
   const { data: currentWorkspace, isLoading: currentWorkspaceLoading, error: currentWorkspaceError } = useQuery<Workspace>({
@@ -75,34 +79,20 @@ export function WorkspaceSwitcher() {
       name: adminWorkspace.name,
       description: adminWorkspace.description || '',
       uniqueId: adminWorkspace.uniqueId,
-      currentUserRole: 'owner', // Organization owners have owner role in all workspaces
+      currentUserRole: adminWorkspace.currentUserRole, // Use actual workspace role from backend
       memberCount: adminWorkspace.memberCount,
       createdAt: adminWorkspace.createdAt,
       isActive: true
     })) :
     (rawWorkspaces as Workspace[]) || [];
 
-
-
-    console.log("*****************************************");
-    console.log("*****************************************");
-    console.log("*****************************************");
-console.log("Workspaces");
-console.log(workspaces);
-console.log("*****************************************");
-console.log("*****************************************");
-console.log("*****************************************");
-
-
-
-
   // Switch workspace mutation
   const switchWorkspaceMutation = useMutation({
     mutationFn: async (workspaceId: number) => {
       const response = await apiRequest('POST', '/api/workspace/switch', { workspaceId });
-      return response;
+      return { response, workspaceId };
     },
-    onSuccess: () => {
+    onSuccess: async ({ workspaceId }) => {
       toast({
         title: "Workspace switched successfully",
         description: "Your workspace has been updated.",
@@ -126,9 +116,52 @@ console.log("*****************************************");
       queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/analytics'] });
       
-      // Also refetch immediately to ensure UI updates
-      queryClient.refetchQueries({ queryKey: ['/api/workspace/current'] });
-      queryClient.refetchQueries({ queryKey: ['/api/auth/user'] });
+      // Refetch critical queries and wait for them to complete
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['/api/workspace/current'] }),
+        queryClient.refetchQueries({ queryKey: ['/api/auth/user'] }),
+        queryClient.refetchQueries({ queryKey: ['/api/user/organization-role'] }),
+        queryClient.refetchQueries({ queryKey: ['/api/user/workspace-roles'] })
+      ]);
+      
+      // Check if user is currently on admin page and redirect if they lose access
+      const isOnAdminPage = location.startsWith('/admin/');
+      if (isOnAdminPage) {
+        // Get fresh workspace data to check new role
+        const newWorkspaceData = queryClient.getQueryData(['/api/workspace/current']) as any;
+        const userRolesData = queryClient.getQueryData(['/api/user/workspace-roles']) as any[];
+        const orgRoleData = queryClient.getQueryData(['/api/user/organization-role']) as any;
+        
+        // Determine if user has admin access in the new workspace
+        const isOrganizationOwner = orgRoleData?.role === 'owner' && orgRoleData?.isActive;
+        const hasAdministratorRole = userRolesData?.some(
+          (role: any) => 
+            role.workspaceId === workspaceId && 
+            role.role === 'administrator' && 
+            role.isActive
+        ) || false;
+        
+        const hasNewAdminAccess = isOrganizationOwner || hasAdministratorRole;
+        
+        console.log('🔄 WORKSPACE SWITCH - Admin Access Check:', {
+          workspaceId,
+          isOrganizationOwner,
+          hasAdministratorRole,
+          hasNewAdminAccess,
+          userRolesData,
+          orgRoleData
+        });
+        
+        // If user loses admin access after workspace switch, redirect to home
+        if (!hasNewAdminAccess) {
+          setLocation('/');
+          toast({
+            title: "Redirected to Home",
+            description: "You don't have administrator access in this workspace.",
+            variant: "default",
+          });
+        }
+      }
       
       // Close dropdown
       setIsOpen(false);
@@ -152,10 +185,6 @@ console.log("*****************************************");
   };
 
   const getRoleIcon = (role: string) => {
-    if (!role) {
-      console.log("🚨 DEBUG  Workspace Switcher - getRoleIcon 1a - Role is undefined/null, returning default color");
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }    
     switch (role.toLowerCase()) {
       case 'owner':
         return <Crown className="w-3 h-3 text-yellow-500" />;
@@ -171,13 +200,14 @@ console.log("*****************************************");
   };
 
   const getRoleBadgeColor = (role: string) => {
-    console.log("🎯 DEBUG 1 - Workspace Switcher - getRoleBadgeColor called with role:     type:      "); //typeof role);
+    console.log("🎯 DEBUG 1 - getRoleBadgeColor called with role:", role, "type:", typeof role);
     
     // Handle undefined or null role
     if (!role) {
       console.log("🚨 DEBUG 1a - Role is undefined/null, returning default color");
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
+    
     switch (role.toLowerCase()) {
       case 'owner':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
@@ -284,7 +314,7 @@ console.log("*****************************************");
                         <Check className="w-4 h-4 text-green-500" />
                       )}
                     </div>
-                    <div className="flex items-center space-x-2 mt-1">         
+                    <div className="flex items-center space-x-2 mt-1">
                       <Badge 
                         variant="secondary" 
                         className={`text-xs px-2 py-0.5 ${getRoleBadgeColor(workspace.currentUserRole)}`}

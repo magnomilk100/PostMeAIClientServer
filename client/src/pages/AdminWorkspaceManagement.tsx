@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdminAccess, useOrganizationRole } from "@/hooks/useOrganizationRole";
+import { useAdminAccess } from "@/hooks/useOrganizationRole";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Shield, Building, Users, Calendar, Plus, Edit, Trash2, Activity, ArrowRightLeft } from "lucide-react";
+import { Building, Users, Activity, Edit, Trash2, ArrowRightLeft, Plus, Settings } from "lucide-react";
 import { ComponentLoading } from "@/components/ui/loading";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,14 +19,12 @@ import { Textarea } from "@/components/ui/textarea";
 interface Workspace {
   id: number;
   name: string;
+  description?: string;
   uniqueId: string;
-  description: string | null;
+  memberCount: number;
   createdAt: string;
   updatedAt: string;
-  memberCount: number;
-  ownerId: string;
-  ownerName: string;
-  ownerEmail: string;
+  isActive: boolean;
 }
 
 export default function AdminWorkspaceManagement() {
@@ -34,74 +32,40 @@ export default function AdminWorkspaceManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { hasAdminAccess, isLoading: adminAccessLoading } = useAdminAccess();
-  const { organizationRole } = useOrganizationRole();
   
-  const [editingWorkspace, setEditingWorkspace] = useState<Workspace | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [deletingWorkspace, setDeletingWorkspace] = useState<Workspace | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState<Workspace | null>(null);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
 
-  // Fetch all workspaces
-  const { data: workspaces, isLoading } = useQuery({
+  // Fetch workspaces
+  const { data: workspaces, isLoading, error } = useQuery({
     queryKey: ['/api/admin/workspaces'],
-    enabled: hasAdminAccess,
-    staleTime: 0, // Force fresh data
-    refetchOnMount: true,
-    refetchOnWindowFocus: true
-  });
-
-  // Fetch user's workspaces to show context
-  const { data: userWorkspaces } = useQuery({
-    queryKey: ['/api/workspaces'],
-    enabled: !!user?.id,
-  });
-
-  // Fetch user's workspace roles to check permissions
-  const { data: userWorkspaceRoles } = useQuery({
-    queryKey: ['/api/user/workspace-roles'],
-    enabled: !!user?.id,
+    enabled: hasAdminAccess && !adminAccessLoading,
   });
 
   // Create workspace mutation
   const createWorkspaceMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string }) => {
-      return await apiRequest('POST', '/api/admin/workspaces', data);
+    mutationFn: async (data: FormData) => {
+      const workspaceData = {
+        name: data.get('name') as string,
+        description: data.get('description') as string || undefined,
+      };
+      return apiRequest('POST', '/api/admin/workspaces', workspaceData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspaces'] });
+      setShowCreateDialog(false);
       toast({
-        title: "Success",
-        description: "Workspace created successfully",
+        title: "Workspace created",
+        description: "The workspace has been created successfully",
       });
-      // Reset form first
-      const form = document.getElementById('createWorkspaceForm') as HTMLFormElement;
-      if (form) {
-        form.reset();
-      }
-      // Use setTimeout to ensure proper state update
-      setTimeout(() => {
-        setShowCreateDialog(false);
-      }, 100);
     },
     onError: (error: any) => {
-      let errorMessage = 'Failed to create workspace';
-      try {
-        // Parse error message if it's in JSON format
-        const errorText = error.message || '';
-        if (errorText.includes('{') && errorText.includes('}')) {
-          const jsonPart = errorText.substring(errorText.indexOf('{'));
-          const parsed = JSON.parse(jsonPart);
-          errorMessage = parsed.message || errorMessage;
-        } else {
-          errorMessage = errorText || errorMessage;
-        }
-      } catch (e) {
-        errorMessage = error.message || 'Failed to create workspace';
-      }
       toast({
-        title: "Error",
-        description: errorMessage,
+        title: "Error creating workspace",
+        description: error.message || "Failed to create workspace",
         variant: "destructive",
       });
     },
@@ -109,39 +73,26 @@ export default function AdminWorkspaceManagement() {
 
   // Update workspace mutation
   const updateWorkspaceMutation = useMutation({
-    mutationFn: async (data: { id: number; name: string; description: string }) => {
-      return await apiRequest('PUT', `/api/admin/workspaces/${data.id}`, {
-        name: data.name,
-        description: data.description,
-      });
+    mutationFn: async (data: FormData) => {
+      const workspaceData = {
+        name: data.get('name') as string,
+        description: data.get('description') as string || undefined,
+      };
+      return apiRequest('PATCH', `/api/admin/workspaces/${editingWorkspace?.id}`, workspaceData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspaces'] });
-      toast({
-        title: "Success",
-        description: "Workspace updated successfully",
-      });
       setShowEditDialog(false);
       setEditingWorkspace(null);
+      toast({
+        title: "Workspace updated",
+        description: "The workspace has been updated successfully",
+      });
     },
     onError: (error: any) => {
-      let errorMessage = 'Failed to update workspace';
-      try {
-        // Parse error message if it's in JSON format
-        const errorText = error.message || '';
-        if (errorText.includes('{') && errorText.includes('}')) {
-          const jsonPart = errorText.substring(errorText.indexOf('{'));
-          const parsed = JSON.parse(jsonPart);
-          errorMessage = parsed.message || errorMessage;
-        } else {
-          errorMessage = errorText || errorMessage;
-        }
-      } catch (e) {
-        errorMessage = error.message || 'Failed to update workspace';
-      }
       toast({
-        title: "Error",
-        description: errorMessage,
+        title: "Error updating workspace",
+        description: error.message || "Failed to update workspace",
         variant: "destructive",
       });
     },
@@ -150,35 +101,21 @@ export default function AdminWorkspaceManagement() {
   // Delete workspace mutation
   const deleteWorkspaceMutation = useMutation({
     mutationFn: async (workspaceId: number) => {
-      return await apiRequest('DELETE', `/api/admin/workspaces/${workspaceId}`);
+      return apiRequest('DELETE', `/api/admin/workspaces/${workspaceId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/workspaces'] });
-      toast({
-        title: "Success",
-        description: "Workspace deleted successfully",
-      });
-      setDeletingWorkspace(null);
+      setWorkspaceToDelete(null);
       setDeleteConfirmationText('');
+      toast({
+        title: "Workspace deleted",
+        description: "The workspace has been deleted successfully",
+      });
     },
     onError: (error: any) => {
-      let errorMessage = 'Failed to delete workspace';
-      try {
-        // Parse error message if it's in JSON format
-        const errorText = error.message || '';
-        if (errorText.includes('{') && errorText.includes('}')) {
-          const jsonPart = errorText.substring(errorText.indexOf('{'));
-          const parsed = JSON.parse(jsonPart);
-          errorMessage = parsed.message || errorMessage;
-        } else {
-          errorMessage = errorText || errorMessage;
-        }
-      } catch (e) {
-        errorMessage = error.message || 'Failed to delete workspace';
-      }
       toast({
-        title: "Error",
-        description: errorMessage,
+        title: "Error deleting workspace",
+        description: error.message || "Failed to delete workspace",
         variant: "destructive",
       });
     },
@@ -187,65 +124,34 @@ export default function AdminWorkspaceManagement() {
   // Switch workspace mutation
   const switchWorkspaceMutation = useMutation({
     mutationFn: async (workspaceId: number) => {
-      return await apiRequest('POST', `/api/admin/workspaces/${workspaceId}/switch`);
+      return apiRequest('POST', '/api/user/switch-workspace', { workspaceId });
     },
     onSuccess: () => {
-      // Force refetch all workspace-related queries
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/workspace/current'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/workspaces'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/workspaces'] });
-      
-      // Invalidate all workspace-dependent data queries
-      queryClient.invalidateQueries({ queryKey: ['/api/images'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/folders'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/workspace/members'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/invitations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/pending-approvals'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/posts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/social-media-configs'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/schedules'] });
-      
-      // Also refetch immediately to ensure UI updates
-      queryClient.refetchQueries({ queryKey: ['/api/workspace/current'] });
-      queryClient.refetchQueries({ queryKey: ['/api/auth/user'] });
-      
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
       toast({
-        title: "Success",
-        description: "Workspace switched successfully",
+        title: "Workspace switched",
+        description: "You have successfully switched workspaces",
       });
     },
     onError: (error: any) => {
-      let errorMessage = 'Failed to switch workspace';
-      try {
-        // Parse error message if it's in JSON format
-        const errorText = error.message || '';
-        if (errorText.includes('{') && errorText.includes('}')) {
-          const jsonPart = errorText.substring(errorText.indexOf('{'));
-          const parsed = JSON.parse(jsonPart);
-          errorMessage = parsed.message || errorMessage;
-        } else {
-          errorMessage = errorText || errorMessage;
-        }
-      } catch (e) {
-        errorMessage = error.message || 'Failed to switch workspace';
-      }
       toast({
-        title: "Error",
-        description: errorMessage,
+        title: "Error switching workspace",
+        description: error.message || "Failed to switch workspace",
         variant: "destructive",
       });
     },
   });
 
-  const handleCreateWorkspace = (e: React.FormEvent) => {
+  const handleCreateWorkspace = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
+    const formData = new FormData(e.currentTarget);
+    createWorkspaceMutation.mutate(formData);
+  };
 
-    createWorkspaceMutation.mutate({ name, description });
+  const handleUpdateWorkspace = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    updateWorkspaceMutation.mutate(formData);
   };
 
   const handleEditWorkspace = (workspace: Workspace) => {
@@ -253,29 +159,13 @@ export default function AdminWorkspaceManagement() {
     setShowEditDialog(true);
   };
 
-  const handleUpdateWorkspace = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingWorkspace) return;
-
-    const formData = new FormData(e.target as HTMLFormElement);
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
-
-    updateWorkspaceMutation.mutate({
-      id: editingWorkspace.id,
-      name,
-      description,
-    });
-  };
-
   const handleDeleteWorkspace = (workspace: Workspace) => {
-    setDeletingWorkspace(workspace);
-    setDeleteConfirmationText('');
+    setWorkspaceToDelete(workspace);
   };
 
   const confirmDeleteWorkspace = () => {
-    if (deletingWorkspace && deleteConfirmationText === deletingWorkspace.name) {
-      deleteWorkspaceMutation.mutate(deletingWorkspace.id);
+    if (workspaceToDelete && deleteConfirmationText === workspaceToDelete.name) {
+      deleteWorkspaceMutation.mutate(workspaceToDelete.id);
     }
   };
 
@@ -283,267 +173,212 @@ export default function AdminWorkspaceManagement() {
     switchWorkspaceMutation.mutate(workspaceId);
   };
 
-  // Check if user can edit/delete a specific workspace
   const canManageWorkspace = (workspace: Workspace) => {
-    // Organization owners can manage all workspaces
-    if (organizationRole?.role === 'owner') {
-      return true;
-    }
-    
-    // Workspace administrators can manage their workspace
-    if (userWorkspaceRoles && Array.isArray(userWorkspaceRoles)) {
-      return userWorkspaceRoles.some((role: any) => 
-        role.workspaceId === workspace.id && 
-        role.role === 'administrator' && 
-        role.isActive
-      );
-    }
-    
-    return false;
+    return hasAdminAccess;
   };
 
-  // Show loading while checking admin access
   if (adminAccessLoading) {
-    return <ComponentLoading text="Checking permissions..." />;
+    return <ComponentLoading />;
   }
 
-  // Check admin access using the proper hook
   if (!hasAdminAccess) {
     return (
-      <div className="page-content">
+      <div className="container mx-auto px-4 py-8">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Access Denied
-            </CardTitle>
-            <CardDescription>
-              You don't have permission to access this page. Administrator privileges required.
-            </CardDescription>
-          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              You don't have permission to access this page.
+            </div>
+          </CardContent>
         </Card>
       </div>
     );
   }
 
-  return (
-    <div className="page-content">
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Workspace Management</h1>
-            <p className="text-muted-foreground">
-              Create, manage, and monitor all workspaces in your organization
-            </p>
-          </div>
-          <Button 
-            onClick={() => setShowCreateDialog(true)}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Workspace
-          </Button>
-        </div>
+  const currentWorkspaceId = (user as any)?.currentWorkspaceId;
 
-        {/* Current Workspace Context */}
-        {userWorkspaces && Array.isArray(userWorkspaces) && userWorkspaces.length > 0 && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-purple-500" />
-                Your Current Workspaces
-              </CardTitle>
-              <CardDescription>
-                Workspaces you are currently a member of
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userWorkspaces.map((workspace: any) => {
-                  const isCurrentWorkspace = (user as any)?.currentWorkspaceId === workspace.id;
-                  return (
-                    <div 
-                      key={workspace.id} 
-                      onClick={() => !isCurrentWorkspace && handleSwitchWorkspace(workspace.id)}
-                      className={`
-                        border rounded-lg p-4 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-pointer
-                        ${isCurrentWorkspace ? 'border-purple-300 bg-purple-50 dark:bg-purple-900/20' : 'hover:border-purple-200'}
-                        ${!isCurrentWorkspace ? 'hover:cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}
-                      `}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className={`font-medium ${isCurrentWorkspace ? 'text-purple-700 dark:text-purple-300' : ''}`}>
-                          {workspace.name}
-                        </div>
-                        {isCurrentWorkspace && (
-                          <Badge className="bg-purple-500 text-white">Current</Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        ID: {workspace.uniqueId}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+  return (
+    <div className="container mx-auto px-4 py-8 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            Workspace Management
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Manage workspaces across your organization
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowCreateDialog(true)}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Create Workspace
+        </Button>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building className="h-5 w-5" />
-            All Workspaces
+            Workspaces
           </CardTitle>
           <CardDescription>
-            View and manage all workspaces in your organization
+            {Array.isArray(workspaces) ? workspaces.length : 0} workspace(s) in your organization
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <ComponentLoading />
+            <ComponentLoading />
+          ) : error ? (
+            <div className="text-center text-red-500 py-8">
+              Error loading workspaces: {error instanceof Error ? error.message : 'Unknown error'}
+            </div>
+          ) : !Array.isArray(workspaces) || workspaces.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No workspaces found</p>
+              <p className="text-sm">Create your first workspace to get started</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Workspace</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>Members</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Last Updated</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {workspaces?.map((workspace: Workspace) => {
-                    const isCurrentWorkspace = (user as any)?.currentWorkspaceId === workspace.id;
+                  {Array.isArray(workspaces) && workspaces.map((workspace: Workspace) => {
+                    const isCurrentWorkspace = currentWorkspaceId === workspace.id;
                     return (
                       <TableRow 
                         key={workspace.id}
-                        onClick={() => !isCurrentWorkspace && handleSwitchWorkspace(workspace.id)}
-                        className={`
-                          transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:shadow-md cursor-pointer
-                          ${isCurrentWorkspace ? 'bg-purple-50 dark:bg-purple-900/20 border-l-4 border-l-purple-500' : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'}
-                          ${!isCurrentWorkspace ? 'hover:cursor-pointer' : ''}
-                        `}
+                        className={`cursor-pointer hover:bg-muted/50 transition-colors ${
+                          isCurrentWorkspace ? 'bg-purple-50 dark:bg-purple-950/20' : ''
+                        }`}
                       >
                         <TableCell>
-                          <div className="flex flex-col">
-                            <div className={`font-medium flex items-center gap-2 ${isCurrentWorkspace ? 'text-purple-700 dark:text-purple-300' : ''}`}>
-                              {workspace.name}
-                              {isCurrentWorkspace && (
-                                <Badge className="bg-purple-500 text-white text-xs">Active</Badge>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              ID: {workspace.uniqueId}
-                            </div>
-                            {workspace.description && (
-                              <div className="text-sm text-muted-foreground mt-1">
-                                {workspace.description}
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="font-medium flex items-center gap-2">
+                                {workspace.name}
+                                {isCurrentWorkspace && (
+                                  <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                                    Current
+                                  </Badge>
+                                )}
                               </div>
+                              <div className="text-sm text-muted-foreground">
+                                ID: {workspace.uniqueId}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {workspace.description || <span className="text-muted-foreground">No description</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users className="h-3 w-3" />
+                            {workspace.memberCount}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={workspace.isActive ? "default" : "secondary"}>
+                            {workspace.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Activity className="h-3 w-3" />
+                            {new Date(workspace.updatedAt).toLocaleDateString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSwitchWorkspace(workspace.id)}
+                              disabled={switchWorkspaceMutation.isPending || isCurrentWorkspace}
+                              className={`
+                                ${isCurrentWorkspace 
+                                  ? 'bg-purple-100 text-purple-700 cursor-not-allowed' 
+                                  : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105'
+                                }
+                              `}
+                            >
+                              <ArrowRightLeft className="h-3 w-3 mr-1" />
+                              {isCurrentWorkspace ? 'Active' : 'Switch'}
+                            </Button>
+                            {canManageWorkspace(workspace) && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleEditWorkspace(workspace)}
+                                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                            )}
+                            {canManageWorkspace(workspace) && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleDeleteWorkspace(workspace)}
+                                    className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    Delete
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Workspace</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete the workspace "{workspace.name}"?
+                                      This action cannot be undone and will affect all {workspace.memberCount} members.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <div className="py-4">
+                                    <Label htmlFor="confirmationText" className="text-sm font-medium">
+                                      Type the workspace name "{workspace.name}" to confirm deletion:
+                                    </Label>
+                                    <Input
+                                      id="confirmationText"
+                                      value={deleteConfirmationText}
+                                      onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                                      placeholder={workspace.name}
+                                      className="mt-2"
+                                    />
+                                  </div>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={() => setDeleteConfirmationText('')}>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={confirmDeleteWorkspace}
+                                      disabled={deleteConfirmationText !== workspace.name || deleteWorkspaceMutation.isPending}
+                                      className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                    >
+                                      {deleteWorkspaceMutation.isPending ? 'Deleting...' : 'Delete Workspace'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             )}
                           </div>
                         </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          <span>{workspace.memberCount}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(workspace.createdAt).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Activity className="h-3 w-3" />
-                          {new Date(workspace.updatedAt).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSwitchWorkspace(workspace.id)}
-                            disabled={switchWorkspaceMutation.isPending || isCurrentWorkspace}
-                            className={`
-                              ${isCurrentWorkspace 
-                                ? 'bg-purple-100 text-purple-700 cursor-not-allowed' 
-                                : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105'
-                              }
-                            `}
-                          >
-                            <ArrowRightLeft className="h-3 w-3 mr-1" />
-                            {isCurrentWorkspace ? 'Active' : 'Switch'}
-                          </Button>
-                          {canManageWorkspace(workspace) && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleEditWorkspace(workspace)}
-                              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                            >
-                              <Edit className="h-3 w-3 mr-1" />
-                              Edit
-                            </Button>
-                          )}
-                          {canManageWorkspace(workspace) && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleDeleteWorkspace(workspace)}
-                                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                                >
-                                  <Trash2 className="h-3 w-3 mr-1" />
-                                  Delete
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Workspace</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete the workspace "{workspace.name}"?
-                                    This action cannot be undone and will affect all {workspace.memberCount} members.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <div className="py-4">
-                                  <Label htmlFor="confirmationText" className="text-sm font-medium">
-                                    Type the workspace name "{workspace.name}" to confirm deletion:
-                                  </Label>
-                                  <Input
-                                    id="confirmationText"
-                                    value={deleteConfirmationText}
-                                    onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                                    placeholder={workspace.name}
-                                    className="mt-2"
-                                  />
-                                </div>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel onClick={() => setDeleteConfirmationText('')}>
-                                    Cancel
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={confirmDeleteWorkspace}
-                                    disabled={deleteConfirmationText !== workspace.name || deleteWorkspaceMutation.isPending}
-                                    className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                  >
-                                    {deleteWorkspaceMutation.isPending ? 'Deleting...' : 'Delete Workspace'}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    )
+                      </TableRow>
+                    );
                   })}
                 </TableBody>
               </Table>

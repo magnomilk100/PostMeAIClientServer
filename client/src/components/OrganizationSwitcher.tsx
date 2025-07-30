@@ -13,10 +13,6 @@ export function OrganizationSwitcher() {
   });
 
   const getRoleIcon = (role: string) => {
-    if (!role) {
-      console.log("🚨 DEBUG  Organization Switcher - getRoleIcon 1a - Role is undefined/null, returning default color");
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }      
     switch (role.toLowerCase()) {
       case 'owner':
         return <Crown className="w-4 h-4 text-yellow-500" />;
@@ -32,10 +28,6 @@ export function OrganizationSwitcher() {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    if (!role) {
-      console.log("🚨 DEBUG  Organization Switcher - getRoleBadgeColor 1a - Role is undefined/null, returning default color");
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }       
     switch (role.toLowerCase()) {
       case 'owner':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
