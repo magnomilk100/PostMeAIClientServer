@@ -48,14 +48,21 @@ export function setupAuth(app: Express) {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "lax": "none",
+        httpOnly: false,
+        secure: false,
+        sameSite: "lax",
         domain: undefined, // Let the browser determine the domain automatically
         maxAge: sessionTtl,
       },
     })
   );
+
+
+  //httpOnly: true,
+  //secure: process.env.NODE_ENV === "production",
+  //sameSite: process.env.NODE_ENV === "production" ? "lax": "none",
+  //domain: undefined, // Let the browser determine the domain automatically
+  //maxAge: sessionTtl,
 
   // ─── 3) Passport init ───────────────────────────────────────────────────
   app.use(passport.initialize());
