@@ -34,21 +34,44 @@ export function setupAuth(app: Express) {
   );
 
   // ─── 2) Sessions ────────────────────────────────────────────────────────
-  const pgStore = connectPg(session);
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "change-this-in-prod",
-      store: new pgStore({ pool, tableName: "sessions", ttl: 7 * 24 * 60 * 60 }),
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      },
-    })
-  );
+// Trust the first proxy (Heroku's reverse proxy)
+app.set('trust proxy', 1);
+
+// Session store setup
+const pgStore = connectPg(session);
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "change-this-in-prod",
+    store: new pgStore({
+      pool,
+      tableName: "sessions",
+      ttl: 7 * 24 * 60 * 60, // 7 days
+    }),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // secure only in prod
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
+  })
+);  
+  // const pgStore = connectPg(session);
+  // app.use(
+  //   session({
+  //     secret: process.env.SESSION_SECRET || "change-this-in-prod",
+  //     store: new pgStore({ pool, tableName: "sessions", ttl: 7 * 24 * 60 * 60 }),
+  //     resave: false,
+  //     saveUninitialized: false,
+  //     cookie: {
+  //       httpOnly: true,
+  //       secure: false,
+  //       sameSite: "lax",
+  //       maxAge: 7 * 24 * 60 * 60 * 1000,
+  //     },
+  //   })
+  // );
 
  // secure: process.env.NODE_ENV === "production",
  // sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
