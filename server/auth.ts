@@ -33,7 +33,13 @@ export function setupAuth(app: Express) {
     })
   );
 
+   // Check if we're in Replit deployment
+   const isReplitDeployment = process.env.REPLIT_DEPLOYMENT === "true" || 
+   process.env.REPLIT === "true" ||
+   process.env.NODE_ENV === "production";
+
   // ─── 2) Sessions ────────────────────────────────────────────────────────
+  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   app.use(
     session({
@@ -44,8 +50,9 @@ export function setupAuth(app: Express) {
       cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        sameSite: process.env.NODE_ENV === "production" ? "lax": "none",
+        domain: undefined, // Let the browser determine the domain automatically
+        maxAge: sessionTtl,
       },
     })
   );

@@ -441,7 +441,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(500).json({ message: "Login error" });
         }
 
-        res.json({ user: req.user });
+        // Ensure session is saved before responding
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return res.status(500).json({ message: "Session save error" });
+          }
+          
+          console.log("✅ User logged in successfully:", user.email, "Session ID:", req.sessionID);
+          res.json({ user: req.user });
+        });  
       });
     })(req, res, next);
   });
