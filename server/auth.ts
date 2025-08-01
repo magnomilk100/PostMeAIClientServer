@@ -50,7 +50,7 @@ export function setupAuth(app: Express) {
       cookie: {
         httpOnly: false,
         secure: false,
-        sameSite: "lax",
+        sameSite: "none",
         domain: undefined, // Let the browser determine the domain automatically
         maxAge: sessionTtl,
       },
