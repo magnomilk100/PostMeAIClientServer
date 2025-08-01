@@ -50,38 +50,41 @@ export function setupAuth(app: Express) {
   // Session configuration
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  // const sessionStore = new pgStore({
+  //   conString: process.env.DATABASE_URL,
+  //   createTableIfMissing: false,
+  //   ttl: sessionTtl,
+  //   tableName: "sessions",
+  // });
 
-  // Configure session based on environment
-  const sessionConfig: any = {
-    secret: process.env.SESSION_SECRET || "your-secret-key-change-in-production",
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    rolling: true, // Reset expiration on activity
-    name: isReplitDeployment ? 'postmeai.sid' : 'connect.sid',
-    cookie: {
-      httpOnly: true,
-      secure: isHTTPS, // HTTPS in production/deployment, HTTP in development
-      sameSite: isHTTPS ? "none" : "lax", // "none" for cross-origin HTTPS, "lax" for local
-      maxAge: sessionTtl,
-      path: '/',
-    }
-  };
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "change-this-in-prod",
+      store: new pgStore({ pool, tableName: "sessions", ttl: 7 * 24 * 60 * 60 }),
+      resave: false,
+      saveUninitialized: false,
+      rolling: true, // Reset expiration on activity
+      cookie: {
+        httpOnly: true,
+        secure: isHTTPS, // HTTPS in production/deployment, HTTP in development
+        sameSite: isHTTPS ? "none" : "lax", // "none" for cross-origin HTTPS, "lax" for local
+        maxAge: sessionTtl,
+        path: '/',
+      },
+    })
+  );
+
+  
   // Set domain for Replit deployment
-  if (isReplitDeployment) {
-    const replSlug = process.env.REPL_SLUG;
-    const replOwner = process.env.REPL_OWNER;
-    if (replSlug && replOwner) {
-      sessionConfig.cookie.domain = `.${replSlug}-${replOwner}.replit.app`;
-    }
-  }
-  app.use(session(sessionConfig));
+  // if (isReplitDeployment) {
+  //   const replSlug = process.env.REPL_SLUG;
+  //   const replOwner = process.env.REPL_OWNER;
+  //   if (replSlug && replOwner) {
+  //     sessionConfig.cookie.domain = `.${replSlug}-${replOwner}.replit.app`;
+  //   }
+  // }
+  // app.use(session(sessionConfig));
 
   // const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   // const pgStore = connectPg(session);
